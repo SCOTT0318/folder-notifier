@@ -68,7 +68,7 @@ internal static class Program
                 var mainHandle = new WindowInteropHelper(window).Handle;
                 Check(!IsWindowVisible(mainHandle), "The actual Windows main window is hidden to the tray");
                 var hint = Get(window, "NotificationPopup");
-                if (hint is not null) Invoke(hint, "Dismiss");
+                if (hint is not null) Invoke(hint, "DismissImmediately");
                 Check(Count(window) == 0, "Tray hide guidance does not set an unread badge");
 
                 var detectionTimer = Stopwatch.StartNew();
@@ -109,7 +109,19 @@ internal static class Program
                 var shellResult = Shell_NotifyIconGetRect(ref iconId, out var shellRect);
                 Check(shellResult == 0 && shellRect.Right > shellRect.Left && shellRect.Bottom > shellRect.Top,
                     "Windows Shell reports a registered tray icon rectangle");
-                await WaitUntil(() => !popup.IsVisible, TimeSpan.FromSeconds(15));
+                await WaitUntil(() => (bool)Get(popup, "IsDeparting")! || !popup.IsVisible, TimeSpan.FromSeconds(15));
+                var departureObserved = (bool)Get(popup, "IsDeparting")!;
+                if (SystemParameters.ClientAreaAnimation)
+                {
+                    Check(departureObserved && IsWindowVisible(new WindowInteropHelper(popup).Handle),
+                        "The actual tray popup starts a downward fade while its native window remains visible");
+                    await Task.Delay(40);
+                    Check((bool)Get(popup, "IsDeparting")! && (double)Get(popup, "ArrivalOffset")! > 0
+                        && Control<Border>(popup, "ArrivalSurface").Opacity > 0 && Control<Border>(popup, "ArrivalSurface").Opacity < 1,
+                        "The installed tray popup visibly moves down and fades during its exit");
+                    SavePreview(popup, Path.Combine(evidence, "departing-notification.png"));
+                }
+                await WaitUntil(() => !popup.IsVisible);
                 Check(!IsWindowVisible(new WindowInteropHelper(popup).Handle), "The native popup automatically hides after its lifetime");
                 CheckBadge(window, expectedCount: 1);
                 Check(!window.IsVisible, "The app stays in the tray after the popup disappears");
@@ -133,6 +145,26 @@ internal static class Program
                 Check(Control<Border>(window, "UnreadCountBadge").Visibility == Visibility.Collapsed,
                     "Acknowledgment also clears the dedicated notification card badge");
                 Check(Control<TextBlock>(window, "FileCount").Text == "3", "Acknowledging notifications preserves the detected-file total");
+                Check(Get(window, "CurrentPage")!.ToString() == "Activity" && Control<Border>(window, "ActivityCard").IsVisible,
+                    "Opening the file list switches the installed app to its file-history screen");
+                Click(window, "SettingsNavButton");
+                await Task.Delay(100);
+                Check(Get(window, "CurrentPage")!.ToString() == "Settings" && Control<Border>(window, "SettingsCard").IsVisible
+                    && !Control<Border>(window, "ActivityCard").IsVisible && !Control<Border>(window, "MonitorCard").IsVisible,
+                    "The installed sidebar opens a dedicated settings screen");
+                SavePreview(window, Path.Combine(evidence, "settings-page.png"));
+                Click(window, "MonitorNavButton");
+                await Task.Delay(100);
+                Check(Get(window, "CurrentPage")!.ToString() == "Monitor" && Control<Border>(window, "MonitorCard").IsVisible,
+                    "The installed sidebar returns to the monitoring dashboard");
+                Click(window, "ActivityNavButton");
+                await Task.Delay(100);
+                Check(Get(window, "CurrentPage")!.ToString() == "Activity" && Control<Border>(window, "ActivityCard").IsVisible
+                    && !Control<Grid>(window, "RightPanel").IsVisible,
+                    "The installed history menu opens the expanded file-history screen");
+                SavePreview(window, Path.Combine(evidence, "history-page.png"));
+                Check((bool)Get(window, "IsRealtimeMonitoring")! && Control<TextBlock>(window, "FileCount").Text == "3",
+                    "Switching every installed sidebar page preserves the active monitor and detected-file total");
                 using (var bitmap = tray.Icon!.ToBitmap()) bitmap.Save(Path.Combine(evidence, "selected-read-tray-icon.png"));
                 SavePreview(window, Path.Combine(evidence, "acknowledged-window.png"));
                 Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assemblyPath))) == assemblyHash
@@ -143,7 +175,7 @@ internal static class Program
                     success = true, assemblySha256 = assemblyHash, coreAssemblySha256 = coreHash, version = assembly.GetName().Version?.ToString(),
                     passedChecks = passed, shellTrayRectangle = new { shellRect.Left, shellRect.Top, shellRect.Right, shellRect.Bottom },
                     exactInputAssemblies = true, realFilesCreated = 3,
-                    detectionMilliseconds, settledMilliseconds, entranceObserved, entranceEnabled = SystemParameters.ClientAreaAnimation,
+                    detectionMilliseconds, settledMilliseconds, entranceObserved, departureObserved, entranceEnabled = SystemParameters.ClientAreaAnimation,
                     detectionSource = (string?)Get(window, "LastDetectionSource"),
                     nativePopupVisible = true, mainHiddenDuringDetection = true,
                     unreadBadgePersistsAfterPopup = true, acknowledgmentClearsBadge = true,

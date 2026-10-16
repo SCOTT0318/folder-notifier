@@ -14,6 +14,8 @@ using Forms = System.Windows.Forms;
 
 namespace FolderNotifier;
 
+internal enum WorkspacePage { Monitor, Activity, Settings }
+
 internal sealed record ActivityEntry(string Title, string Detail, bool IsFile, DateTime Timestamp)
 {
     public string Time => Timestamp.ToString("HH:mm:ss");
@@ -55,12 +57,14 @@ internal partial class MainWindow : Window
     internal string LastDetectionSource { get; private set; } = "";
 
     internal NotificationWindow? NotificationPopup { get; private set; }
+    internal WorkspacePage CurrentPage { get; private set; } = WorkspacePage.Monitor;
 
     internal ObservableCollection<ActivityEntry> Activities { get; } = new();
 
     public MainWindow(string? settingsPath = null, IStartupRegistration? startupRegistration = null)
     {
         InitializeComponent();
+        NavigateTo(WorkspacePage.Monitor);
         var workArea = SystemParameters.WorkArea;
         MinWidth = Math.Min(900, Math.Max(600, workArea.Width - 32));
         MinHeight = Math.Min(600, Math.Max(400, workArea.Height - 32));
@@ -195,7 +199,7 @@ internal partial class MainWindow : Window
             UnreadNotificationCount = (int)Math.Min(int.MaxValue, (long)UnreadNotificationCount + unreadCount);
             UpdateNotificationIndicator();
         }
-        NotificationPopup ??= new NotificationWindow(ShowWindow);
+        NotificationPopup ??= new NotificationWindow(OpenNotificationActivity);
         NotificationPopup.ShowNotification(title, message, files, folder, isPreview);
     }
     private void ClearClicked(object sender, RoutedEventArgs e)
@@ -253,7 +257,7 @@ internal partial class MainWindow : Window
     private void ShowLatestNotification(object sender, RoutedEventArgs e)
     {
         if (closing || sessionEnding || latestNotification is not { } latest) return;
-        NotificationPopup ??= new NotificationWindow(ShowWindow);
+        NotificationPopup ??= new NotificationWindow(OpenNotificationActivity);
         NotificationPopup.ShowNotification(latest.Title, latest.Message, latest.Files, latest.Folder, latest.IsPreview);
     }
 
@@ -265,15 +269,42 @@ internal partial class MainWindow : Window
         MonitorFolderName.ToolTip = path;
     }
 
-    private void SelectNavigation(Button selected, FrameworkElement section)
+    private void NavigateTo(WorkspacePage page)
     {
+        CurrentPage = page;
+        var monitoring = page == WorkspacePage.Monitor;
+        var activity = page == WorkspacePage.Activity;
+        var settingsPage = page == WorkspacePage.Settings;
+        var selected = monitoring ? MonitorNavButton : activity ? ActivityNavButton : SettingsNavButton;
         foreach (var button in new[] { MonitorNavButton, ActivityNavButton, SettingsNavButton })
             button.Tag = button == selected ? "selected" : null;
-        section.BringIntoView();
+        PageTitle.Text = monitoring ? "내 파일 모니터" : activity ? "파일 기록" : "환경 설정";
+        PageSubtitle.Text = monitoring ? "도착한 파일과 알림을 한곳에서 확인하세요."
+            : activity ? "도착한 파일과 감시 상태를 시간순으로 확인하세요." : "감시 범위와 앱 실행 방식을 설정하세요.";
+        MonitorCard.Visibility = monitoring ? Visibility.Visible : Visibility.Collapsed;
+        ActivityCard.Visibility = settingsPage ? Visibility.Collapsed : Visibility.Visible;
+        RightPanel.Visibility = activity ? Visibility.Collapsed : Visibility.Visible;
+        NotificationCard.Visibility = monitoring ? Visibility.Visible : Visibility.Collapsed;
+        SettingsCard.Visibility = activity ? Visibility.Collapsed : Visibility.Visible;
+        WorkspaceLayout.RowDefinitions[3].Height = new GridLength(monitoring ? 18 : 0);
+        WorkspaceBody.ColumnDefinitions[1].Width = new GridLength(monitoring ? 16 : 0);
+        WorkspaceBody.ColumnDefinitions[2].Width = new GridLength(monitoring ? 264 : 0);
+        Grid.SetColumnSpan(ActivityCard, monitoring ? 1 : 3);
+        Grid.SetColumn(RightPanel, monitoring ? 2 : 0);
+        Grid.SetColumnSpan(RightPanel, monitoring ? 1 : 3);
+        RightPanel.RowDefinitions[1].Height = new GridLength(monitoring ? 14 : 0);
+        MainSurface.MinHeight = monitoring ? 760 : 520;
+        SettingsCard.Padding = new Thickness(settingsPage ? 28 : 18);
+        SettingsHeading.FontSize = settingsPage ? 20 : 16;
+        SettingsPageHint.Visibility = settingsPage ? Visibility.Visible : Visibility.Collapsed;
+        Resources["SettingsLabelSize"] = settingsPage ? 14d : 12d;
+        Resources["SettingsDescriptionSize"] = settingsPage ? 12d : 10d;
+        RootScroller.ScrollToTop();
     }
-    private void NavigateMonitor(object sender, RoutedEventArgs e) => SelectNavigation(MonitorNavButton, MonitorCard);
-    private void NavigateActivity(object sender, RoutedEventArgs e) => SelectNavigation(ActivityNavButton, ActivityCard);
-    private void NavigateSettings(object sender, RoutedEventArgs e) => SelectNavigation(SettingsNavButton, SettingsCard);
+    private void NavigateMonitor(object sender, RoutedEventArgs e) => NavigateTo(WorkspacePage.Monitor);
+    private void NavigateActivity(object sender, RoutedEventArgs e) => NavigateTo(WorkspacePage.Activity);
+    private void NavigateSettings(object sender, RoutedEventArgs e) => NavigateTo(WorkspacePage.Settings);
+    private void OpenNotificationActivity() { NavigateTo(WorkspacePage.Activity); ShowWindow(); }
 
     private static ImageSource CreateUnreadOverlay(int count)
     {
@@ -444,7 +475,7 @@ internal partial class MainWindow : Window
         ShowNotification("폴더 알림이 실행 중입니다", "트레이 아이콘을 두 번 클릭하면 창이 열립니다. 종료는 트레이 메뉴에서 선택하세요.", unreadCount: 0);
     }
     internal void ExitApp() { exiting = true; Close(); }
-    internal void PrepareForSessionEnd() { sessionEnding = exiting = true; cancellation?.Cancel(); NotificationPopup?.Dismiss(); tray.Visible = false; }
+    internal void PrepareForSessionEnd() { sessionEnding = exiting = true; cancellation?.Cancel(); NotificationPopup?.DismissImmediately(); tray.Visible = false; }
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
         if (sessionEnding) return;

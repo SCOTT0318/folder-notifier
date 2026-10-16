@@ -33,16 +33,16 @@
                     </Border>
                     <Button x:Name="HideButton" Content="트레이로 숨기기" Click="HideClicked" Style="{StaticResource NavButton}" FontSize="12"/>
                     <Button x:Name="ExitButton" Content="앱 종료" Click="ExitClicked" Style="{StaticResource NavButton}" FontSize="12" Margin="0,4,0,0"/>
-                    <TextBlock x:Name="AppVersionText" Text="v1.7.0" Foreground="#8097B8" FontSize="10" Margin="12,18,0,0"/>
+                    <TextBlock x:Name="AppVersionText" Text="v1.8.0" Foreground="#8097B8" FontSize="10" Margin="12,18,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
         <ScrollViewer x:Name="RootScroller" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" CanContentScroll="False">
         <Grid x:Name="MainSurface" Background="#F3F5F9" MinWidth="650" MinHeight="760" Width="{Binding ActualWidth, ElementName=RootScroller}" Height="{Binding ActualHeight, ElementName=RootScroller}">
-        <Grid Margin="24,24,24,24">
+        <Grid x:Name="WorkspaceLayout" Margin="24,24,24,24">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="18"/><RowDefinition Height="Auto"/><RowDefinition Height="18"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <Grid>
-                <StackPanel><TextBlock Text="내 파일 모니터" FontSize="27" FontWeight="SemiBold"/><TextBlock Text="도착한 파일과 알림을 한곳에서 확인하세요." FontSize="12" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
+                <StackPanel><TextBlock x:Name="PageTitle" Text="내 파일 모니터" FontSize="27" FontWeight="SemiBold"/><TextBlock x:Name="PageSubtitle" Text="도착한 파일과 알림을 한곳에서 확인하세요." FontSize="12" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
                 <Border Background="#E7EDFB" CornerRadius="10" Padding="14,8" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal"><TextBlock Text="발견한 파일" FontSize="11" Foreground="#536B9B" VerticalAlignment="Center"/>
                         <TextBlock x:Name="FileCount" Text="0" FontSize="25" FontWeight="SemiBold" Foreground="{StaticResource Accent}" Margin="12,0,4,0"/><TextBlock Text="개" FontSize="11" Foreground="#536B9B" VerticalAlignment="Center"/>
@@ -84,7 +84,7 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            <Grid Grid.Row="4">
+            <Grid x:Name="WorkspaceBody" Grid.Row="4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="264"/></Grid.ColumnDefinitions>
                 <Border x:Name="ActivityCard" Style="{StaticResource Card}" Padding="0" ClipToBounds="True">
                     <Grid>
@@ -112,7 +112,7 @@
                         </StackPanel>
                     </Grid>
                 </Border>
-                <Grid Grid.Column="2">
+                <Grid x:Name="RightPanel" Grid.Column="2">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="14"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border x:Name="NotificationCard" Background="White" BorderBrush="#DFE7F2" BorderThickness="1" CornerRadius="14" Padding="16" AutomationProperties.Name="미확인 알림 카드">
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -125,12 +125,12 @@
                     </Border>
                     <Border x:Name="SettingsCard" Grid.Row="2" Style="{StaticResource Card}" Padding="18">
                         <StackPanel>
-                            <TextBlock Text="환경 설정" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,18"/>
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="하위 폴더 포함" FontSize="12"/><TextBlock Text="안쪽 폴더까지 감지" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="RecursiveSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="하위 폴더 포함"/></Grid>
+                            <TextBlock x:Name="SettingsHeading" Text="환경 설정" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,18"/><TextBlock x:Name="SettingsPageHint" Text="감시 중에는 폴더와 감시 옵션이 잠깁니다. 모니터링 화면에서 중지한 뒤 변경하세요." Visibility="Collapsed" Foreground="{StaticResource Muted}" FontSize="{DynamicResource SettingsLabelSize}" TextWrapping="Wrap" Margin="0,0,0,24"/>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="하위 폴더 포함" FontSize="{DynamicResource SettingsLabelSize}"/><TextBlock Text="안쪽 폴더까지 감지" FontSize="{DynamicResource SettingsDescriptionSize}" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="RecursiveSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="하위 폴더 포함"/></Grid>
                             <Border Height="1" Background="{StaticResource Line}" Margin="0,16"/>
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="앱 실행 시 감시" FontSize="12"/><TextBlock Text="저장한 폴더에서 시작" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="AutoStartSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="다음 앱 실행 시 감시 시작"/></Grid>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="앱 실행 시 감시" FontSize="{DynamicResource SettingsLabelSize}"/><TextBlock Text="저장한 폴더에서 시작" FontSize="{DynamicResource SettingsDescriptionSize}" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="AutoStartSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="다음 앱 실행 시 감시 시작"/></Grid>
                             <Border Height="1" Background="{StaticResource Line}" Margin="0,16"/>
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Margin="0,0,6,0"><TextBlock Text="로그인 시 실행" FontSize="12"/><TextBlock x:Name="StartupHint" Text="트레이에서 자동 감시" FontSize="10" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/></StackPanel><CheckBox x:Name="LoginStartupSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="Windows 로그인 시 자동 실행"/></Grid>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Margin="0,0,6,0"><TextBlock Text="로그인 시 실행" FontSize="{DynamicResource SettingsLabelSize}"/><TextBlock x:Name="StartupHint" Text="트레이에서 자동 감시" FontSize="{DynamicResource SettingsDescriptionSize}" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/></StackPanel><CheckBox x:Name="LoginStartupSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="Windows 로그인 시 자동 실행"/></Grid>
                         </StackPanel>
                     </Border>
                 </Grid>

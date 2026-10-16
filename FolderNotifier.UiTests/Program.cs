@@ -82,6 +82,7 @@ internal static class Program
                 window.TestNotificationButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(ReferenceEquals(popup, window.NotificationPopup), "Repeated test reuses one popup");
                 popup.DismissButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await WaitUntil(() => !popup.IsVisible);
                 Check(!popup.IsVisible, "Notification close button dismisses the popup");
                 Check(window.UnreadNotificationCount == 2 && window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is not null,
                     "Dismissing a popup preserves the unread badge and accumulates notifications");
@@ -90,8 +91,10 @@ internal static class Program
                     "The main notification card can reopen the latest alert without adding unread counts");
                 SavePreview(window, Path.Combine(parent, "ui-preview-unread-card.png"));
                 popup.Dismiss();
+                await WaitUntil(() => !popup.IsVisible);
                 await TestNotificationLifetime();
                 await TestArrivalAnimation(parent);
+                await TestDepartureAnimation(parent);
                 await TestFilenameLayout(parent);
                 window.MarkReadButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null
@@ -145,7 +148,7 @@ internal static class Program
                 Check(window.UnreadNotificationCount == 3 && window.TrayTooltip.Contains("미확인 3개"),
                     "Batch notifications count every file and retain the unread tooltip across scans");
                 popup.Dismiss();
-                await Task.Delay(200);
+                await WaitUntil(() => !popup.IsVisible);
                 Check(window.UnreadNotificationCount == 3 && window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is not null
                     && window.TrayTooltip.Contains("미확인 3개"), "Dismissing the popup preserves the unread badge");
                 SavePreview(window, Path.Combine(parent, "ui-preview.png"));
@@ -162,15 +165,29 @@ internal static class Program
                 SavePreview(window, Path.Combine(parent, "ui-preview-minimum.png"));
                 window.SettingsNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Task.Delay(100);
-                Check(window.RootScroller.VerticalOffset > 0
-                    && window.SettingsCard.TransformToAncestor(window.RootScroller).Transform(new Point(0, window.SettingsCard.ActualHeight)).Y <= window.RootScroller.ActualHeight,
-                    "Sidebar navigation brings settings into view on a small window");
+                Check(window.CurrentPage == WorkspacePage.Settings && window.PageTitle.Text == "환경 설정"
+                    && !window.MonitorCard.IsVisible && !window.ActivityCard.IsVisible && window.SettingsCard.IsVisible
+                    && window.SettingsCard.ActualWidth > 500,
+                    "Settings navigation switches to a dedicated full-width settings screen");
                 Check(((SolidColorBrush)window.SettingsNavButton.Background).Color != ((SolidColorBrush)window.MonitorNavButton.Background).Color,
                     "Sidebar navigation visibly distinguishes the selected section");
+                SavePreview(window, Path.Combine(parent, "ui-preview-settings.png"));
+                var recordedFileNames = window.Activities.Where(row => row.IsFile).Select(row => row.Title).ToArray();
+                window.ActivityNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Task.Delay(100);
+                Check(window.CurrentPage == WorkspacePage.Activity && window.PageTitle.Text == "파일 기록"
+                    && window.ActivityCard.IsVisible && !window.MonitorCard.IsVisible && !window.RightPanel.IsVisible
+                    && window.ActivityCard.ActualWidth > 500 && window.ActivityList.ActualHeight > 250,
+                    "Activity navigation switches to a dedicated expanded file-history screen");
+                Check(window.IsRealtimeMonitoring && window.FileCount.Text == "3"
+                    && window.Activities.Where(row => row.IsFile).Select(row => row.Title).SequenceEqual(recordedFileNames),
+                    "Changing screens preserves live monitoring, file totals and the existing history");
+                SavePreview(window, Path.Combine(parent, "ui-preview-history.png"));
                 window.MonitorNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Task.Delay(100);
-                Check(window.MonitorCard.TransformToAncestor(window.RootScroller).Transform(new Point()).Y >= -1,
-                    "Sidebar navigation returns to the monitoring panel");
+                Check(window.CurrentPage == WorkspacePage.Monitor && window.MonitorCard.IsVisible && window.RightPanel.IsVisible
+                    && window.RootScroller.VerticalOffset == 0,
+                    "Monitoring navigation restores its dashboard and resets the outer scroll position");
                 window.RootScroller.ScrollToBottom();
                 await Task.Delay(200);
                 Check(window.ExitButton.TransformToAncestor(window).Transform(new Point(0, window.ExitButton.ActualHeight)).Y < window.ActualHeight,
@@ -195,10 +212,14 @@ internal static class Program
                 Check(window.UnreadNotificationCount == 3 && window.HasUnreadTrayIcon,
                     "Activation delivered to a hidden tray window cannot acknowledge its unread badge");
                 popup.OpenAppButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await WaitUntil(() => !popup.IsVisible);
                 Check(window.IsVisible && !popup.IsVisible, "Notification action restores the app and dismisses the popup");
+                Check(window.CurrentPage == WorkspacePage.Activity && window.ActivityCard.IsVisible,
+                    "The notification's file-list action opens the actual file-history page");
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null,
                     "Opening the app from the notification clears unread indicators");
                 var recordedFiles = window.FileCount.Text;
+                window.MonitorNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 window.TestNotificationButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 window.MarkReadButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.FileCount.Text == recordedFiles && window.Activities.Any(row => row.IsFile),
@@ -342,6 +363,7 @@ internal static class Program
             Check(!popup.IsArriving && popup.ArrivalOffset == 0 && popup.ArrivalSurface.Opacity == 1,
                 "Updating an already visible popup does not replay the slide or flash");
             popup.Dismiss();
+            await WaitUntil(() => !popup.IsVisible);
             popup.ShowNotification("닫기 테스트", "등장 도중 닫기");
             popup.Dismiss();
             await Task.Delay(400);
@@ -373,6 +395,59 @@ internal static class Program
             Check(!shortLived.IsVisible, "Leaving the completed entrance starts the normal display lifetime");
         }
         finally { shortLived.ClosePermanently(); }
+    }
+
+    private static async Task TestDepartureAnimation(string parent)
+    {
+        var popup = new NotificationWindow(() => { }, TimeSpan.FromSeconds(2), animationsEnabled: true);
+        try
+        {
+            popup.ShowNotification("퇴장 테스트", "", new[] { "입고 검수 완료.xlsx" });
+            await WaitUntil(() => !popup.IsArriving);
+            popup.DismissButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(popup.IsVisible && popup.IsDeparting, "Close starts a departure instead of hiding the popup immediately");
+            popup.Dismiss();
+            await Task.Delay(110);
+            Check(popup.IsVisible && popup.IsDeparting && popup.ArrivalOffset > 0 && popup.ArrivalOffset < 36
+                && popup.ArrivalSurface.Opacity > 0 && popup.ArrivalSurface.Opacity < 1,
+                "The departing popup moves downward while fading out");
+            SavePreview(popup, Path.Combine(parent, "ui-preview-departure-middle.png"));
+            await WaitUntil(() => !popup.IsVisible);
+            Check(!popup.IsDeparting && popup.ArrivalOffset == 0 && popup.ArrivalSurface.Opacity == 1,
+                "Completed departure hides the window and resets motion for its next use");
+            popup.ShowNotification("이전 알림", "퇴장 중 새 파일");
+            await WaitUntil(() => !popup.IsArriving);
+            popup.Dismiss();
+            await Task.Delay(80);
+            var previousOpacity = popup.ArrivalSurface.Opacity;
+            popup.ShowNotification("새 파일 도착", "", new[] { "늦게 도착한 파일.pdf" });
+            Check(popup.IsVisible && popup.IsArriving && !popup.IsDeparting
+                && Math.Abs(popup.ArrivalSurface.Opacity - previousOpacity) < .05,
+                "A new notification reverses the in-progress exit without flashing or losing the new content");
+            await Task.Delay(250);
+            Check(popup.IsVisible && popup.NotificationTitle.Text == "새 파일 도착",
+                "An old departure callback cannot hide the replacement notification");
+            await WaitUntil(() => !popup.IsArriving);
+            popup.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice,
+                PresentationSource.FromVisual(popup)!, 0, System.Windows.Input.Key.Escape) { RoutedEvent = UIElement.KeyDownEvent });
+            Check(popup.IsDeparting && popup.IsVisible, "Escape uses the same smooth departure");
+            await WaitUntil(() => !popup.IsVisible);
+            popup.ShowNotification("즉시 정리", "앱 종료");
+            popup.Dismiss();
+            popup.ClosePermanently();
+            await Task.Delay(400);
+            Check(!popup.IsVisible && !Application.Current.Windows.Cast<Window>().Contains(popup),
+                "Permanent app shutdown cancels pending motion and closes the notification immediately");
+        }
+        finally { if (Application.Current.Windows.Cast<Window>().Contains(popup)) popup.ClosePermanently(); }
+        var reduced = new NotificationWindow(() => { }, animationsEnabled: false);
+        try
+        {
+            reduced.ShowNotification("동작 줄이기", "즉시 닫기");
+            reduced.Dismiss();
+            Check(!reduced.IsVisible && !reduced.IsDeparting, "Reduced-motion mode also skips the exit animation");
+        }
+        finally { reduced.ClosePermanently(); }
     }
 
     private static async Task TestNotificationLifetime()

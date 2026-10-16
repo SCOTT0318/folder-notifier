@@ -25,6 +25,7 @@ internal partial class NotificationWindow : Window
     private int presentation;
     private bool pointerOver;
     internal bool IsArriving { get; private set; }
+    internal bool IsDeparting { get; private set; }
     internal double ArrivalOffset => ArrivalTranslation.Y;
     internal IReadOnlyList<NotificationFile> DisplayedFiles { get; private set; } = Array.Empty<NotificationFile>();
 
@@ -46,6 +47,9 @@ internal partial class NotificationWindow : Window
     internal void ShowNotification(string title, string message, IReadOnlyList<string>? files = null, string? folder = null, bool isPreview = false)
     {
         var alreadyVisible = IsVisible;
+        var reversingExit = alreadyVisible && IsDeparting;
+        var startOffset = reversingExit ? ArrivalTranslation.Y : 36;
+        var startOpacity = reversingExit ? ArrivalSurface.Opacity : 0;
         pointerOver = IsMouseOver;
         ResetArrival();
         dismissal.Stop();
@@ -67,30 +71,30 @@ internal partial class NotificationWindow : Window
         PopupCount.Text = hasFiles ? files!.Count.ToString("N0") : "!";
         PopupCountBadge.Visibility = Visibility.Visible;
         // A single popup is reused; bursts update its content and restart its lifetime.
-        if (!alreadyVisible && animateArrival)
+        if ((!alreadyVisible || reversingExit) && animateArrival)
         {
-            ArrivalSurface.Opacity = 0;
-            ArrivalTranslation.Y = 36;
+            ArrivalSurface.Opacity = startOpacity;
+            ArrivalTranslation.Y = startOffset;
         }
         PositionOnDesktop();
         Show();
         UpdateLayout();
         PositionOnDesktop();
-        if (!alreadyVisible && animateArrival) BeginArrival();
+        if ((!alreadyVisible || reversingExit) && animateArrival) BeginArrival(startOffset, startOpacity);
         if (animateArrival)
             BellRotation.BeginAnimation(RotateTransform.AngleProperty,
                 new DoubleAnimation(-7, 7, TimeSpan.FromMilliseconds(110)) { AutoReverse = true, RepeatBehavior = new RepeatBehavior(3), FillBehavior = FillBehavior.Stop });
         if (!IsArriving && !pointerOver) dismissal.Start();
     }
 
-    private void BeginArrival()
+    private void BeginArrival(double offset, double opacity)
     {
         IsArriving = true;
         var current = presentation;
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = TimeSpan.FromMilliseconds(320);
-        var slide = new DoubleAnimation(36, 0, duration) { EasingFunction = ease };
-        var fade = new DoubleAnimation(0, 1, duration) { EasingFunction = ease };
+        var slide = new DoubleAnimation(offset, 0, duration) { EasingFunction = ease };
+        var fade = new DoubleAnimation(opacity, 1, duration) { EasingFunction = ease };
         // Keep the base at the hidden start until WPF's first animation tick; otherwise
         // the final card can flash for one frame before its clock becomes active.
         slide.Completed += (_, _) =>
@@ -111,6 +115,7 @@ internal partial class NotificationWindow : Window
     {
         presentation++;
         IsArriving = false;
+        IsDeparting = false;
         ArrivalTranslation.BeginAnimation(TranslateTransform.YProperty, null);
         ArrivalSurface.BeginAnimation(OpacityProperty, null);
         ArrivalTranslation.Y = 0;
@@ -126,7 +131,32 @@ internal partial class NotificationWindow : Window
         Top = Math.Max(area.Top, area.Bottom - ActualHeight - 12);
     }
 
-    internal void Dismiss() { dismissal.Stop(); ResetArrival(); Hide(); }
+    internal void Dismiss()
+    {
+        dismissal.Stop();
+        if (!IsVisible || IsDeparting) return;
+        if (!animateArrival) { DismissImmediately(); return; }
+        var offset = ArrivalTranslation.Y;
+        var opacity = ArrivalSurface.Opacity;
+        ResetArrival();
+        IsDeparting = true;
+        ArrivalTranslation.Y = offset;
+        ArrivalSurface.Opacity = opacity;
+        var current = presentation;
+        var duration = TimeSpan.FromMilliseconds(240);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+        var slide = new DoubleAnimation(offset, 36, duration) { EasingFunction = ease };
+        var fade = new DoubleAnimation(opacity, 0, duration) { EasingFunction = ease };
+        slide.Completed += (_, _) =>
+        {
+            if (current != presentation || disposing) return;
+            Hide();
+            ResetArrival();
+        };
+        ArrivalTranslation.BeginAnimation(TranslateTransform.YProperty, slide);
+        ArrivalSurface.BeginAnimation(OpacityProperty, fade);
+    }
+    internal void DismissImmediately() { dismissal.Stop(); ResetArrival(); Hide(); }
     internal void ClosePermanently() { dismissal.Stop(); ResetArrival(); disposing = true; Close(); }
     protected override void OnClosing(CancelEventArgs e)
     {
@@ -139,7 +169,7 @@ internal partial class NotificationWindow : Window
     private void ResumeDismissal(object sender, MouseEventArgs e)
     {
         pointerOver = false;
-        if (IsVisible && !IsArriving) { dismissal.Stop(); dismissal.Start(); }
+        if (IsVisible && !IsArriving && !IsDeparting) { dismissal.Stop(); dismissal.Start(); }
     }
     private void NotificationKeyDown(object sender, KeyEventArgs e)
     {
