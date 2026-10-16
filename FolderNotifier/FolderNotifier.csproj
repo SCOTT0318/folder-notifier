@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <StartupObject>FolderNotifier.Program</StartupObject>
+    <Nullable>enable</Nullable>
+    <AssemblyName>FolderNotifier</AssemblyName>
+    <Version>1.2.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\folder-notifier.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FolderNotifier.Core/FolderNotifier.Core.csproj" />
+    <EmbeddedResource Include="Assets\folder-notifier.ico" LogicalName="FolderNotifier.AppIcon.ico" />
+    <Resource Include="Assets\folder-notifier.png" />
+  </ItemGroup>
+</Project>

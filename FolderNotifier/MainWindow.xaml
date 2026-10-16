@@ -1,0 +1,154 @@
+<Window x:Class="FolderNotifier.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:ClassModifier="internal" Title="폴더 알림" Width="1100" Height="800" MinWidth="900" MinHeight="720"
+    WindowStartupLocation="CenterScreen" Background="#F3F5F9" FontFamily="Segoe UI Variable, Malgun Gothic"
+    FontSize="14" UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <ScrollViewer x:Name="RootScroller" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}"
+        VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" CanContentScroll="False">
+    <Grid x:Name="MainSurface" Background="#F3F5F9" MinWidth="840" MinHeight="760" Width="{Binding ActualWidth, ElementName=RootScroller}" Height="{Binding ActualHeight, ElementName=RootScroller}">
+    <Grid Margin="32,24,32,22">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="24"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <Image x:Name="BrandIcon" Width="52" Height="52" Margin="0,0,16,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <StackPanel><TextBlock Text="폴더 알림" FontSize="28" FontWeight="SemiBold"/>
+                    <TextBlock Text="새로운 파일이 도착하면 알려드릴게요." Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
+                </StackPanel>
+            </StackPanel>
+            <Border Grid.Column="1" Background="#E8EEFC" CornerRadius="8" Padding="18,10" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE8A5;" Style="{StaticResource Glyph}" Foreground="#2563EB" Margin="0,0,10,0"/>
+                    <TextBlock Text="새 파일" Foreground="#42608D" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="FileCount" Text="0" FontSize="24" FontWeight="SemiBold" Foreground="#1D4ED8" Margin="12,0,3,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="개" Foreground="#42608D" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="310"/></Grid.ColumnDefinitions>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="감시할 폴더" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Border x:Name="StatusBadge" Background="#F0F2F6" CornerRadius="12" Padding="10,4" HorizontalAlignment="Right">
+                            <StackPanel Orientation="Horizontal"><Ellipse x:Name="StatusDot" Width="6" Height="6" Fill="#8A94A5" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="StatusText" Text="대기 중" FontSize="12" Foreground="#667085"/></StackPanel>
+                        </Border>
+                    </Grid>
+                    <TextBlock Text="새 파일을 확인할 위치를 선택하세요." Foreground="{StaticResource Muted}" FontSize="13" Margin="0,8,0,18"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Border CornerRadius="6" BorderThickness="1" BorderBrush="#CCD3DE" Background="#FAFBFD" Padding="12,0">
+                            <Grid>
+                                <TextBox x:Name="FolderInput" MinHeight="42" Padding="0" BorderThickness="0" Background="Transparent"
+                                    VerticalContentAlignment="Center" FontSize="13" AutomationProperties.Name="감시할 폴더 경로"/>
+                                <TextBlock Text="폴더 경로를 입력하거나 선택하세요" FontSize="12" Foreground="#8A94A5" IsHitTestVisible="False" VerticalAlignment="Center">
+                                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=FolderInput}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                    </Style></TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+                        <Button x:Name="BrowseButton" Grid.Column="2" Content="폴더 선택" Click="ChooseFolder"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                        <Button x:Name="StartButton" Style="{StaticResource PrimaryButton}" Click="StartClicked" MinWidth="116">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons" Margin="0,0,8,0" Foreground="White"/><TextBlock Text="감시 시작" Foreground="White"/></StackPanel>
+                        </Button>
+                        <Button x:Name="StopButton" Content="감시 중지" Click="StopClicked" IsEnabled="False" Margin="8,0,0,0"/>
+                        <Button Content="폴더 열기" Click="OpenFolderClicked" Style="{StaticResource QuietButton}" Margin="8,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock x:Name="StatusDetail" Text="폴더를 선택한 후 감시를 시작하세요." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,14,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource Card}" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="감시 설정" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,19"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel><TextBlock Text="하위 폴더 포함" FontSize="13"/><TextBlock Text="안쪽 폴더까지 함께 확인" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
+                        <CheckBox x:Name="RecursiveSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="하위 폴더 포함"/>
+                    </Grid>
+                    <Border Height="1" Background="#EEF0F5" Margin="0,16"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel><TextBlock Text="앱 실행 시 감시 시작" FontSize="13"/><TextBlock Text="다음 앱 실행부터 적용" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
+                        <CheckBox x:Name="AutoStartSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="다음 앱 실행 시 감시 시작"/>
+                    </Grid>
+                    <Border Height="1" Background="#EEF0F5" Margin="0,16"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="Windows 로그인 시 자동 실행" FontSize="12"/>
+                            <TextBlock x:Name="StartupHint" Text="로그인 후 트레이에서 감시" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <CheckBox x:Name="LoginStartupSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="Windows 로그인 시 자동 실행"/>
+                    </Grid>
+                    <Button Content="알림 테스트" Click="TestNotificationClicked" Margin="0,20,0,0" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+        <Border Grid.Row="4" Style="{StaticResource Card}" Padding="0" ClipToBounds="True">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid Margin="24,16">
+                    <StackPanel><TextBlock Text="최근 활동" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Text="새 파일과 감시 상태 · 최근 500개까지 보관" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
+                    <Button Content="이력 비우기" Click="ClearClicked" Style="{StaticResource QuietButton}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Border Grid.Row="1" Background="#EEF0F5"/>
+                <ListBox x:Name="ActivityList" Grid.Row="2" BorderThickness="0" Background="Transparent" Padding="12,4"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                    VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                    HorizontalContentAlignment="Stretch" AutomationProperties.Name="최근 파일 및 감시 활동">
+                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="12,12"/><Setter Property="Margin" Value="0,2"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Row" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#F5F7FC"/></Trigger>
+                                <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#EAF0FF"/></Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="#2563EB"/><Setter TargetName="Row" Property="BorderThickness" Value="1"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate></Setter.Value></Setter>
+                    </Style></ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate><DataTemplate>
+                        <Grid ToolTip="{Binding Detail}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                            <Border Width="34" Height="38" CornerRadius="6" Background="{Binding IconBackground}" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons" FontSize="17" Foreground="{Binding IconForeground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Text="{Binding Time}" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </DataTemplate></ListBox.ItemTemplate>
+                </ListBox>
+                <StackPanel x:Name="EmptyState" Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False" Margin="0,20">
+                    <Border Background="#F1F5FC" CornerRadius="16" Width="64" Height="64" HorizontalAlignment="Center" Margin="0,0,0,14">
+                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons" FontSize="28" Foreground="#8AA7D8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="아직 새로운 활동이 없어요" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="감시를 시작하면 새 파일이 여기에 표시됩니다." FontSize="12" Foreground="{StaticResource Muted}" Margin="0,7,0,0" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        <Grid Grid.Row="5" Margin="0,14,0,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="&#xE946;" FontFamily="Segoe Fluent Icons" Foreground="#8A94A5" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="창을 닫아도 트레이에서 계속 실행됩니다." Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="HideButton" Content="트레이로 숨기기" Click="HideClicked" Style="{StaticResource QuietButton}"/>
+                <Button x:Name="ExitButton" Content="앱 종료" Click="ExitClicked" Style="{StaticResource QuietButton}" Margin="6,0,0,0"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+    </Grid>
+    </ScrollViewer>
+</Window>

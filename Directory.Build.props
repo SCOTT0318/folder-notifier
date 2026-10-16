@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <!-- Keep developer-machine paths out of public binaries and symbols. -->
+    <PathMap>$(MSBuildThisFileDirectory)=/_/FolderNotifier/</PathMap>
+  </PropertyGroup>
+</Project>
