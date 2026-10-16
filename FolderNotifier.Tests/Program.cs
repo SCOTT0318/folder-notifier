@@ -69,6 +69,8 @@ try
     var restart = new FolderMonitor(testRoot, false);
     Check(restart.Scan().AddedFiles.Count == 0, "Restart establishes fresh baseline");
 
+    passed += await RealtimeMonitorTests.RunAsync(testRoot);
+
     Console.WriteLine($"\nAll {passed} checks passed.");
 }
 finally

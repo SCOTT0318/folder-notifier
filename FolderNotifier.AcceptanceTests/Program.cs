@@ -15,7 +15,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Forms = System.Windows.Forms;
 
-// Run the exact installed assembly with isolated settings and actual filesystem scans.
+// Run the exact supplied publish/installed assembly with isolated settings and actual filesystem scans.
 // Do not reference the application project: that would test a freshly built copy.
 internal static class Program
 {
@@ -41,6 +41,8 @@ internal static class Program
             return File.Exists(path) ? AssemblyLoadContext.Default.LoadFromAssemblyPath(path) : null;
         };
         var assemblyHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assemblyPath)));
+        var corePath = Path.Combine(assemblyDirectory, "FolderNotifier.Core.dll");
+        var coreHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(corePath)));
         var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
         var app = (Application)Activator.CreateInstance(assembly.GetType("FolderNotifier.App", true)!, nonPublic: true)!;
         Invoke(app, "InitializeComponent");
@@ -48,7 +50,7 @@ internal static class Program
         var startup = Activator.CreateInstance(assembly.GetType("FolderNotifier.StartupRegistration", true)!,
             new object?[] { Path.ChangeExtension(assemblyPath, ".exe"), @"Software\FolderNotifier.AcceptanceTests\" + Guid.NewGuid().ToString("N") });
         var window = (Window)Activator.CreateInstance(assembly.GetType("FolderNotifier.MainWindow", true)!, new[] { config, startup })!;
-        window.Title = "폴더 알림 · 설치본 트레이 검증";
+        window.Title = "폴더 알림 · 실시간 트레이 검증";
         Exception? failure = null;
         window.Loaded += async (_, _) =>
         {
@@ -58,6 +60,7 @@ internal static class Program
                 monitoring = (Task)Invoke(window, "StartMonitoringAsync")!;
                 await WaitUntil(() => Control<TextBlock>(window, "StatusText").Text == "감시 중");
                 Check(Control<TextBlock>(window, "FileCount").Text == "0" && Count(window) == 0, "Baseline files do not create unread notifications");
+                Check((bool)Get(window, "IsRealtimeMonitoring")!, "The supplied assembly arms realtime filesystem events");
                 Click(window, "HideButton");
                 await WaitUntil(() => !window.IsVisible);
                 var mainHandle = new WindowInteropHelper(window).Handle;
@@ -66,8 +69,13 @@ internal static class Program
                 if (hint is not null) Invoke(hint, "Dismiss");
                 Check(Count(window) == 0, "Tray hide guidance does not set an unread badge");
 
+                var detectionTimer = Stopwatch.StartNew();
                 File.WriteAllText(Path.Combine(folder, "실제 추가 파일.txt"), "Tray acceptance fixture.");
                 await WaitUntil(() => Count(window) == 1 && Popup(window)?.IsVisible == true);
+                var detectionMilliseconds = detectionTimer.Elapsed.TotalMilliseconds;
+                Check((string?)Get(window, "LastDetectionSource") == "FileSystemEvent" && detectionMilliseconds < 2000,
+                    "A filesystem event displays the tray notification before the old two-second polling interval");
+                Console.WriteLine($"Tray event-to-popup latency: {detectionMilliseconds:F0} ms");
                 var popup = Popup(window)!;
                 Check(!window.IsVisible && !IsWindowVisible(mainHandle), "A detected file leaves the main window hidden");
                 Check(IsWindowVisible(new WindowInteropHelper(popup).Handle), "A new file creates a visible native Windows notification window");
@@ -96,6 +104,7 @@ internal static class Program
                 File.WriteAllText(Path.Combine(folder, "추가 자료 2.txt"), "batch 2");
                 await WaitUntil(() => Count(window) == 3 && popup.IsVisible);
                 Check(Control<TextBlock>(window, "FileCount").Text == "3", "Additional real files accumulate while hidden");
+                Check((string?)Get(window, "LastDetectionSource") == "FileSystemEvent", "Additional files also use the realtime event path");
                 CheckBadge(window, expectedCount: 3);
                 Click(popup, "OpenAppButton");
                 await WaitUntil(() => window.IsVisible && !popup.IsVisible);
@@ -104,19 +113,21 @@ internal static class Program
                 Check(Control<TextBlock>(window, "FileCount").Text == "3", "Acknowledging notifications preserves the detected-file total");
                 using (var bitmap = tray.Icon!.ToBitmap()) bitmap.Save(Path.Combine(evidence, "selected-read-tray-icon.png"));
                 SavePreview(window, Path.Combine(evidence, "acknowledged-window.png"));
-                Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assemblyPath))) == assemblyHash,
-                    "The installed application assembly is unchanged by acceptance tests");
+                Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assemblyPath))) == assemblyHash
+                    && Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(corePath))) == coreHash,
+                    "The supplied application and core assemblies are unchanged by acceptance tests");
                 File.WriteAllText(Path.Combine(evidence, "result.json"), JsonSerializer.Serialize(new
                 {
-                    success = true, assemblySha256 = assemblyHash, version = assembly.GetName().Version?.ToString(),
+                    success = true, assemblySha256 = assemblyHash, coreAssemblySha256 = coreHash, version = assembly.GetName().Version?.ToString(),
                     passedChecks = passed, shellTrayRectangle = new { shellRect.Left, shellRect.Top, shellRect.Right, shellRect.Bottom },
-                    exactInstalledAssembly = true, realFilesCreated = 3,
+                    exactInputAssemblies = true, realFilesCreated = 3,
+                    detectionMilliseconds, detectionSource = (string?)Get(window, "LastDetectionSource"),
                     nativePopupVisible = true, mainHiddenDuringDetection = true,
                     unreadBadgePersistsAfterPopup = true, acknowledgmentClearsBadge = true,
                     evidenceNote = "Icon PNGs show the icon selected by the running app, not a screenshot of the Windows taskbar.",
                     verifiedAt = DateTimeOffset.Now
                 }, new JsonSerializerOptions { WriteIndented = true }));
-                Console.WriteLine($"All {passed.Count} installed-assembly tray acceptance checks passed.");
+                Console.WriteLine($"All {passed.Count} application-assembly tray acceptance checks passed.");
             }
             catch (Exception ex) { failure = ex; }
             finally
@@ -145,6 +156,7 @@ internal static class Program
     private static void CheckBadge(Window window, int expectedCount)
     {
         var tray = (Forms.NotifyIcon)Get(window, "tray")!;
+        Console.WriteLine($"Tray state: expected={expectedCount}, unread={Count(window)}, unreadIcon={Get(window, "HasUnreadTrayIcon")}, trayVisible={tray.Visible}, mainVisible={window.IsVisible}, mainActive={window.IsActive}, state={window.WindowState}");
         Check(Count(window) == expectedCount && (bool)Get(window, "HasUnreadTrayIcon")! && tray.Visible,
             $"The running tray icon uses its unread badge with count {expectedCount}");
         using var selected = tray.Icon!.ToBitmap();

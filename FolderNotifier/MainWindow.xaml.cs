@@ -47,6 +47,8 @@ internal partial class MainWindow : Window
     internal int UnreadNotificationCount { get; private set; }
     internal string TrayTooltip => tray.Text;
     internal bool HasUnreadTrayIcon => ReferenceEquals(tray.Icon, unreadTrayIcon);
+    internal bool IsRealtimeMonitoring { get; private set; }
+    internal string LastDetectionSource { get; private set; } = "";
 
     internal NotificationWindow? NotificationPopup { get; private set; }
 
@@ -100,7 +102,11 @@ internal partial class MainWindow : Window
         };
         SourceInitialized += (_, _) => ApplyWindowCorners();
         Closing += OnClosing;
-        Activated += (_, _) => MarkNotificationsRead();
+        Activated += (_, _) =>
+        {
+            // Windows can deliver activation while a tray window is still hidden.
+            if (IsVisible && WindowState != WindowState.Minimized) MarkNotificationsRead();
+        };
         Closed += (_, _) => { NotificationPopup?.ClosePermanently(); tray.Visible = false; tray.Dispose(); trayMenu.Dispose(); unreadTrayIcon.Dispose(); trayIcon.Dispose(); appIcon.Dispose(); };
     }
 
@@ -245,21 +251,28 @@ internal partial class MainWindow : Window
         cancellation = new CancellationTokenSource();
         SetRunning(true);
         SetStatus("준비 중", "기존 파일을 확인하고 있습니다…", "#EAF0FF", "#2563EB");
-        var monitor = new FolderMonitor(folder, settings.IncludeSubfolders);
+        var monitor = new RealtimeFolderMonitor(folder, settings.IncludeSubfolders);
         monitoringTask = MonitorLoopAsync(monitor, cancellation.Token);
         await monitoringTask;
     }
 
-    private async Task MonitorLoopAsync(FolderMonitor monitor, CancellationToken token)
+    private async Task MonitorLoopAsync(RealtimeFolderMonitor monitor, CancellationToken token)
     {
         var baselineReady = false;
         string? lastError = null;
+        string? lastWatcherError = null;
         try
         {
-            while (!token.IsCancellationRequested)
+            await foreach (var update in monitor.WatchAsync(token))
             {
-                var result = await Task.Run(() => monitor.Scan(token), token).WaitAsync(token);
+                var result = update.Scan;
                 token.ThrowIfCancellationRequested();
+                IsRealtimeMonitoring = update.IsRealtime;
+                if (update.WatcherError is not null && update.WatcherError != lastWatcherError)
+                    AddHistory("이벤트 감시 연결 확인", update.WatcherError);
+                if (lastWatcherError is not null && update.IsRealtime)
+                    AddHistory("실시간 감시 연결 복구", activeFolder);
+                lastWatcherError = update.WatcherError;
                 if (result.Error is not null)
                 {
                     SetStatus("연결 확인", "폴더 연결 또는 접근 권한을 확인해 주세요. 자동으로 재시도합니다.", "#FFF4E8", "#B56712");
@@ -276,11 +289,16 @@ internal partial class MainWindow : Window
                     if (lastError is not null) AddHistory("연결 복구", activeFolder);
                     lastError = null;
                     if (!baselineReady) { baselineReady = true; AddHistory("감시 시작", activeFolder); }
-                    SetStatus("감시 중", $"2초마다 확인 · 마지막 확인 {DateTime.Now:HH:mm:ss}", "#E9F6EE", "#20844D");
-                    SetTrayStatus("감시 중");
-                    if (result.AddedFiles.Count > 0) NotifyAdded(result.AddedFiles);
+                    var detail = update.IsRealtime ? "실시간 이벤트 감시 · 누락 재확인 30초" : "이벤트 연결 재시도 · 2초 간격 재확인";
+                    SetStatus("감시 중", $"{detail} · 최근 확인 {DateTime.Now:HH:mm:ss}",
+                        update.IsRealtime ? "#E9F6EE" : "#FFF4E8", update.IsRealtime ? "#20844D" : "#B56712");
+                    SetTrayStatus(update.IsRealtime ? "실시간 감시 중" : "이벤트 연결 재시도");
+                    if (result.AddedFiles.Count > 0)
+                    {
+                        LastDetectionSource = update.Trigger.ToString();
+                        NotifyAdded(result.AddedFiles);
+                    }
                 }
-                await Task.Delay(TimeSpan.FromSeconds(2), token);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
@@ -294,6 +312,7 @@ internal partial class MainWindow : Window
         finally
         {
             cancellation?.Dispose(); cancellation = null;
+            IsRealtimeMonitoring = false;
             SetRunning(false);
         }
     }

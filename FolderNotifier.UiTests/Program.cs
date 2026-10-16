@@ -87,6 +87,8 @@ internal static class Program
                 TestIsolatedRegistry();
                 window.StartButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await WaitUntil(() => window.StatusText.Text == "감시 중");
+                Check(window.IsRealtimeMonitoring && window.StatusDetail.Text.Contains("실시간 이벤트 감시"),
+                    "Monitoring starts with filesystem events and accurately reports its mode");
                 Check(!window.FolderInput.IsEnabled && !window.RecursiveSwitch.IsEnabled && !window.AutoStartSwitch.IsEnabled,
                     "Monitoring locks the folder and options");
                 Check(window.StopButton.IsEnabled, "Stop enabled while monitoring");
@@ -108,9 +110,9 @@ internal static class Program
                 Check(window.UnreadNotificationCount == 3 && window.TrayTooltip.Contains("미확인 3개"),
                     "Batch notifications count every file and retain the unread tooltip across scans");
                 popup.Dismiss();
-                await Task.Delay(2200);
+                await Task.Delay(200);
                 Check(window.UnreadNotificationCount == 3 && window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is not null
-                    && window.TrayTooltip.Contains("미확인 3개"), "Periodic monitoring and popup expiry preserve the unread badge");
+                    && window.TrayTooltip.Contains("미확인 3개"), "Dismissing the popup preserves the unread badge");
                 SavePreview(window, Path.Combine(parent, "ui-preview.png"));
                 window.Width = window.MinWidth;
                 window.Height = window.MinHeight;
@@ -140,6 +142,10 @@ internal static class Program
                 Check(!window.IsVisible, "Close hides to tray");
                 Check(popup.IsVisible, "Tray hide guidance is visible while the main window is hidden");
                 Check(window.UnreadNotificationCount == 3, "Tray hide guidance does not create an extra unread notification");
+                typeof(Window).GetMethod("OnActivated", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .Invoke(window, new object[] { EventArgs.Empty });
+                Check(window.UnreadNotificationCount == 3 && window.HasUnreadTrayIcon,
+                    "Activation delivered to a hidden tray window cannot acknowledge its unread badge");
                 popup.OpenAppButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.IsVisible && !popup.IsVisible, "Notification action restores the app and dismisses the popup");
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null,
