@@ -80,7 +80,7 @@ internal static class Program
                 Check(!window.IsVisible && !IsWindowVisible(mainHandle), "A detected file leaves the main window hidden");
                 Check(IsWindowVisible(new WindowInteropHelper(popup).Handle), "A new file creates a visible native Windows notification window");
                 Check(!popup.IsActive && popup.Topmost, "The file notification is topmost without taking input focus");
-                Check(Control<TextBlock>(popup, "NotificationMessage").Text.Contains("실제 추가 파일.txt"), "The popup contains the actual added filename");
+                Check(ContainsFilename(popup, "실제 추가 파일.txt"), "The popup contains the actual added filename");
                 CheckBadge(window, expectedCount: 1);
                 SavePreview(popup, Path.Combine(evidence, "file-notification.png"));
                 var tray = (Forms.NotifyIcon)Get(window, "tray")!;
@@ -105,6 +105,8 @@ internal static class Program
                 await WaitUntil(() => Count(window) == 3 && popup.IsVisible);
                 Check(Control<TextBlock>(window, "FileCount").Text == "3", "Additional real files accumulate while hidden");
                 Check((string?)Get(window, "LastDetectionSource") == "FileSystemEvent", "Additional files also use the realtime event path");
+                Check(ContainsFilename(popup, "추가 자료 1.txt") && ContainsFilename(popup, "추가 자료 2.txt"),
+                    "Both actual batch filenames are displayed in separate notification rows");
                 CheckBadge(window, expectedCount: 3);
                 Click(popup, "OpenAppButton");
                 await WaitUntil(() => window.IsVisible && !popup.IsVisible);
@@ -151,6 +153,14 @@ internal static class Program
                 StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Unsafe fixture cleanup path");
             Directory.Delete(resolved, recursive: true);
         }
+    }
+
+    private static bool ContainsFilename(Window popup, string name)
+    {
+        var list = Control<ItemsControl>(popup, "FileList");
+        foreach (var item in list.Items)
+            if ((string?)Get(item, "Name") == name && list.IsVisible) return true;
+        return false;
     }
 
     private static void CheckBadge(Window window, int expectedCount)

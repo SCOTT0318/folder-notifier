@@ -44,15 +44,16 @@ internal static class Program
                 window.TestNotificationButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Task.Delay(200);
                 var popup = window.NotificationPopup!;
-                Check(popup is { IsVisible: true } && popup.NotificationTitle.Text == "폴더 알림 테스트"
-                    && popup.NotificationMessage.Text.Contains("새 파일"), "Test button displays the actual notification window and message");
+                Check(popup is { IsVisible: true } && popup.NotificationKind.Text == "알림 미리보기"
+                    && popup.DisplayedFiles.Select(file => file.Name).SequenceEqual(new[] { "월간 보고서.pdf", "입고 목록.xlsx" }),
+                    "Preview displays example filenames through the actual file notification layout");
                 Check(popup.Topmost && !popup.ShowInTaskbar && !popup.ShowActivated && !popup.IsActive,
                     "Notification stays above other windows without stealing focus or adding a taskbar button");
                 var workArea = SystemParameters.WorkArea;
                 Check(popup.Left >= workArea.Left && popup.Top >= workArea.Top
                     && popup.Left + popup.ActualWidth <= workArea.Right && popup.Top + popup.ActualHeight <= workArea.Bottom,
                     "Notification is fully inside the desktop work area above the taskbar");
-                Check(window.Activities.Any(row => row.Title == "알림 테스트") && window.FileCount.Text == "0",
+                Check(window.Activities.Any(row => row.Title == "알림 미리보기") && window.FileCount.Text == "0",
                     "Test is recorded in history without incrementing the new-file count");
                 Check(window.UnreadNotificationCount == 1 && window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is not null
                     && window.TrayTooltip.Contains("미확인 1개") && window.MarkReadButton.Visibility == Visibility.Visible,
@@ -65,6 +66,7 @@ internal static class Program
                 Check(window.UnreadNotificationCount == 2 && window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is not null,
                     "Dismissing a popup preserves the unread badge and accumulates notifications");
                 await TestNotificationLifetime();
+                await TestFilenameLayout(parent);
                 window.MarkReadButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null
                     && window.MarkReadButton.Visibility == Visibility.Collapsed && window.FileCount.Text == "0",
@@ -98,14 +100,14 @@ internal static class Program
                 await WaitUntil(() => window.FileCount.Text == "1");
                 Check(window.Activities.Any(row => row.Title == "테스트 파일.txt" && row.IsFile), "Async scan updates activity and count");
                 Check(window.EmptyState.Visibility == Visibility.Collapsed, "Activity replaces the empty state");
-                Check(popup.IsVisible && popup.NotificationTitle.Text == "새 파일이 추가되었습니다"
-                    && popup.NotificationMessage.Text.Contains("테스트 파일.txt"), "New-file detection uses the same visible notification path");
+                Check(popup.IsVisible && popup.NotificationTitle.Text == "새 파일 도착"
+                    && popup.DisplayedFiles.Any(file => file.Name == "테스트 파일.txt"), "New-file detection uses the same visible notification path");
                 Check(window.UnreadNotificationCount == 1 && window.HasUnreadTrayIcon, "Detected files mark the app as unread");
                 File.WriteAllText(Path.Combine(folder, "업무자료.pdf"), "test fixture only");
                 File.WriteAllText(Path.Combine(folder, "입고 목록.xlsx"), "test fixture only");
                 await WaitUntil(() => window.FileCount.Text == "3");
-                Check(popup.NotificationTitle.Text == "새 파일 2개가 추가되었습니다"
-                    && popup.NotificationMessage.Text.Contains("업무자료.pdf") && popup.NotificationMessage.Text.Contains("입고 목록.xlsx"),
+                Check(popup.NotificationTitle.Text == "새 파일 2개 도착"
+                    && popup.DisplayedFiles.Any(file => file.Name == "업무자료.pdf") && popup.DisplayedFiles.Any(file => file.Name == "입고 목록.xlsx"),
                     "Multiple detected files appear together in one popup");
                 Check(window.UnreadNotificationCount == 3 && window.TrayTooltip.Contains("미확인 3개"),
                     "Batch notifications count every file and retain the unread tooltip across scans");
@@ -172,11 +174,11 @@ internal static class Program
                     File.WriteAllText(Path.Combine(folder, "로그인 후 새 파일.txt"), "startup fixture");
                     await WaitUntil(() => background.FileCount.Text == "1");
                     await WaitUntil(() => background.NotificationPopup is { IsVisible: true }
-                        && background.NotificationPopup.NotificationMessage.Text.Contains("로그인 후 새 파일.txt"));
+                        && background.NotificationPopup.DisplayedFiles.Any(file => file.Name == "로그인 후 새 파일.txt"));
                     Check(background.Activities.Any(row => row.Title == "로그인 후 새 파일.txt"), "Background login monitor detects new files");
                     Console.WriteLine($"Background notification: mainVisible={background.IsVisible}, popupVisible={background.NotificationPopup?.IsVisible}, popupActive={background.NotificationPopup?.IsActive}, unread={background.UnreadNotificationCount}, message={background.NotificationPopup?.NotificationMessage.Text}");
                     Check(!background.IsVisible && background.NotificationPopup is { IsVisible: true, IsActive: false }
-                        && background.NotificationPopup.NotificationMessage.Text.Contains("로그인 후 새 파일.txt"),
+                        && background.NotificationPopup.DisplayedFiles.Any(file => file.Name == "로그인 후 새 파일.txt"),
                         "Tray-only monitoring displays new-file notifications without opening the main window");
                     Check(background.UnreadNotificationCount == 1 && background.HasUnreadTrayIcon,
                         "Tray-only monitoring retains a badge after a new file arrives");
@@ -231,6 +233,43 @@ internal static class Program
                 throw new InvalidOperationException("Unsafe test cleanup path");
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    private static async Task TestFilenameLayout(string parent)
+    {
+        var popup = new NotificationWindow(() => { });
+        try
+        {
+            var longName = "2026년_10월_입고검수_" + new string('가', 190) + "_최종확인.xlsx";
+            var files = new[] { longName, "월간 보고서.pdf", "배송 안내.txt", "추가 파일.csv", "README" };
+            popup.ShowNotification("새 파일 5개 도착", "", files, @"D:\업무 자료\입고 검수\2026년 10월");
+            await Task.Delay(200);
+            popup.UpdateLayout();
+            Check(popup.DisplayedFiles.Count == 3 && popup.DisplayedFiles[0].Name == longName
+                && popup.DisplayedFiles[0].Name.EndsWith(".xlsx"), "Long filenames retain their full text and extension without global message truncation");
+            Check(popup.FileList.IsVisible && popup.FileList.Items.Count == 3 && popup.NotificationMessage.Visibility == Visibility.Collapsed,
+                "File notifications render distinct visible filename rows");
+            Check(popup.OverflowText.Text.Contains("외 2개") && popup.OverflowText.IsVisible,
+                "Batches disclose the exact number of files beyond the three preview rows");
+            Check(popup.FolderContext.Text.EndsWith("2026년 10월") && popup.FolderContext.ToolTip is string,
+                "Notification folder context retains its full path in a tooltip");
+            var presenter = (ContentPresenter)popup.FileList.ItemContainerGenerator.ContainerFromIndex(0);
+            Check(presenter.ActualHeight <= 120 && presenter.ActualHeight > 40,
+                "Long filenames wrap within a bounded row instead of pushing actions off-screen");
+            Check(popup.OpenAppButton.TransformToAncestor(popup).Transform(new Point(0, popup.OpenAppButton.ActualHeight)).Y <= popup.ActualHeight
+                && popup.Top + popup.ActualHeight <= SystemParameters.WorkArea.Bottom,
+                "Long batch notifications keep the open action inside the popup and desktop");
+            SavePreview(popup, Path.Combine(parent, "ui-preview-notification-long.png"));
+            popup.ShowNotification("새 파일 도착", "", new[] { "입고 검수 완료.xlsx" }, @"D:\업무 자료");
+            await Task.Delay(100);
+            Check(popup.DisplayedFiles.Count == 1 && popup.OverflowText.Visibility == Visibility.Collapsed,
+                "Reusing a batch popup for a single file clears stale rows and overflow");
+            SavePreview(popup, Path.Combine(parent, "ui-preview-notification-single.png"));
+            popup.ShowNotification("연결 확인", "폴더 연결을 확인해 주세요.");
+            Check(popup.FilePanel.Visibility == Visibility.Collapsed && popup.NotificationMessage.IsVisible
+                && popup.DisplayedFiles.Count == 0, "Generic guidance replaces file rows without showing stale filenames");
+        }
+        finally { popup.ClosePermanently(); }
     }
 
     private static async Task TestNotificationLifetime()

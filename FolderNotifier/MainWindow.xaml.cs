@@ -169,12 +169,14 @@ internal partial class MainWindow : Window
     private void ExitClicked(object sender, RoutedEventArgs e) => ExitApp();
     private void TestNotificationClicked(object sender, RoutedEventArgs e)
     {
-        const string message = "새 파일이 추가되면 이런 알림이 표시됩니다.";
-        ShowNotification("폴더 알림 테스트", message);
-        AddHistory("알림 테스트", message);
+        const string message = "예시 파일로 알림 디자인을 확인했습니다. 실제 파일은 추가하지 않았습니다.";
+        ShowNotification("새 파일 2개 도착", message, files: new[] { "월간 보고서.pdf", "입고 목록.xlsx" },
+            folder: string.IsNullOrWhiteSpace(FolderInput.Text) ? "예시 폴더 · 업무 자료" : FolderInput.Text, isPreview: true);
+        AddHistory("알림 미리보기", message);
     }
 
-    private void ShowNotification(string title, string message, int unreadCount = 1)
+    private void ShowNotification(string title, string message, int unreadCount = 1,
+        IReadOnlyList<string>? files = null, string? folder = null, bool isPreview = false)
     {
         if (closing || sessionEnding) return;
         if (unreadCount > 0)
@@ -183,7 +185,7 @@ internal partial class MainWindow : Window
             UpdateNotificationIndicator();
         }
         NotificationPopup ??= new NotificationWindow(ShowWindow);
-        NotificationPopup.ShowNotification(title, message);
+        NotificationPopup.ShowNotification(title, message, files, folder, isPreview);
     }
     private void ClearClicked(object sender, RoutedEventArgs e)
     {
@@ -341,11 +343,8 @@ internal partial class MainWindow : Window
     {
         totalAdded += files.Count; FileCount.Text = totalAdded.ToString("N0");
         foreach (var path in files.TakeLast(500)) AddHistory(Path.GetFileName(path), path, true);
-        var title = files.Count == 1 ? "새 파일이 추가되었습니다" : $"새 파일 {files.Count:N0}개가 추가되었습니다";
-        var message = string.Join("\n", files.Take(3).Select(Path.GetFileName));
-        if (files.Count > 3) message += $"\n외 {files.Count - 3:N0}개 · 앱에서 확인";
-        if (message.Length > 240) message = message[..237] + "…";
-        ShowNotification(title, message, files.Count);
+        var title = files.Count == 1 ? "새 파일 도착" : $"새 파일 {files.Count:N0}개 도착";
+        ShowNotification(title, "", files.Count, files, activeFolder);
     }
 
     private void AddHistory(string title, string detail, bool isFile = false)
