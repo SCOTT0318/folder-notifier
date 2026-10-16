@@ -8,7 +8,7 @@
     <StartupObject>FolderNotifier.Program</StartupObject>
     <Nullable>enable</Nullable>
     <AssemblyName>FolderNotifier</AssemblyName>
-    <Version>1.8.0</Version>
+    <Version>1.8.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\folder-notifier.ico</ApplicationIcon>
   </PropertyGroup>

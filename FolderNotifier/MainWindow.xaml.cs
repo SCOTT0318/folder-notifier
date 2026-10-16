@@ -97,6 +97,9 @@ internal partial class MainWindow : Window
         UpdateFolderHeading();
         RecursiveSwitch.IsChecked = settings.IncludeSubfolders;
         AutoStartSwitch.IsChecked = settings.StartOnLaunch;
+        NotificationDurationSelector.ItemsSource = Enumerable.Range(1, 5);
+        NotificationDurationSelector.SelectedItem = settings.NotificationDurationSeconds;
+        NotificationDurationSelector.SelectionChanged += NotificationDurationChanged;
         if (loadError is not null) AddHistory("설정 오류", loadError);
         this.startupRegistration = startupRegistration ?? new StartupRegistration();
         try { LoginStartupSwitch.IsChecked = this.startupRegistration.IsEnabled; }
@@ -164,6 +167,25 @@ internal partial class MainWindow : Window
         }
     }
 
+    private void NotificationDurationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (NotificationDurationSelector.SelectedItem is not int seconds) return;
+        var previous = settings.NotificationDurationSeconds;
+        if (previous == seconds) return;
+        settings.NotificationDurationSeconds = seconds;
+        try
+        {
+            settings.Save();
+            NotificationPopup?.SetDisplayDuration(seconds);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            settings.NotificationDurationSeconds = previous;
+            NotificationDurationSelector.SelectedItem = previous;
+            AddHistory("알림 시간 저장 실패", ex.Message);
+        }
+    }
+
     private void OnUi(Action action)
     {
         if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(action);
@@ -199,7 +221,7 @@ internal partial class MainWindow : Window
             UnreadNotificationCount = (int)Math.Min(int.MaxValue, (long)UnreadNotificationCount + unreadCount);
             UpdateNotificationIndicator();
         }
-        NotificationPopup ??= new NotificationWindow(OpenNotificationActivity);
+        NotificationPopup ??= new NotificationWindow(OpenNotificationActivity, TimeSpan.FromSeconds(settings.NotificationDurationSeconds));
         NotificationPopup.ShowNotification(title, message, files, folder, isPreview);
     }
     private void ClearClicked(object sender, RoutedEventArgs e)
@@ -257,7 +279,7 @@ internal partial class MainWindow : Window
     private void ShowLatestNotification(object sender, RoutedEventArgs e)
     {
         if (closing || sessionEnding || latestNotification is not { } latest) return;
-        NotificationPopup ??= new NotificationWindow(OpenNotificationActivity);
+        NotificationPopup ??= new NotificationWindow(OpenNotificationActivity, TimeSpan.FromSeconds(settings.NotificationDurationSeconds));
         NotificationPopup.ShowNotification(latest.Title, latest.Message, latest.Files, latest.Folder, latest.IsPreview);
     }
 
@@ -297,6 +319,7 @@ internal partial class MainWindow : Window
         SettingsCard.Padding = new Thickness(settingsPage ? 28 : 18);
         SettingsHeading.FontSize = settingsPage ? 20 : 16;
         SettingsPageHint.Visibility = settingsPage ? Visibility.Visible : Visibility.Collapsed;
+        NotificationDurationRow.Visibility = settingsPage ? Visibility.Visible : Visibility.Collapsed;
         Resources["SettingsLabelSize"] = settingsPage ? 14d : 12d;
         Resources["SettingsDescriptionSize"] = settingsPage ? 12d : 10d;
         RootScroller.ScrollToTop();

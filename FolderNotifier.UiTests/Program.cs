@@ -95,6 +95,7 @@ internal static class Program
                 await TestNotificationLifetime();
                 await TestArrivalAnimation(parent);
                 await TestDepartureAnimation(parent);
+                await TestNotificationDuration(root);
                 await TestFilenameLayout(parent);
                 window.MarkReadButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null
@@ -130,7 +131,8 @@ internal static class Program
                 Check(!window.FolderInput.IsEnabled && !window.RecursiveSwitch.IsEnabled && !window.AutoStartSwitch.IsEnabled,
                     "Monitoring locks the folder and options");
                 Check(window.StopButton.IsEnabled, "Stop enabled while monitoring");
-                Check(window.LoginStartupSwitch.IsEnabled, "Login startup remains editable while monitoring");
+                Check(window.LoginStartupSwitch.IsEnabled && window.NotificationDurationSelector.IsEnabled,
+                    "Login startup and notification duration remain editable while monitoring");
                 var child = Directory.CreateDirectory(Path.Combine(folder, "하위")).FullName;
                 File.WriteAllText(Path.Combine(child, "테스트 파일.txt"), "UI integration");
                 await WaitUntil(() => window.FileCount.Text == "1");
@@ -448,6 +450,71 @@ internal static class Program
             Check(!reduced.IsVisible && !reduced.IsDeparting, "Reduced-motion mode also skips the exit animation");
         }
         finally { reduced.ClosePermanently(); }
+    }
+
+    private static async Task TestNotificationDuration(string root)
+    {
+        var config = Path.Combine(root, "duration-settings.json");
+        File.WriteAllText(config, "{\"Folder\":\"\",\"StartOnLaunch\":false}");
+        Check(AppSettings.Load(out _, config).NotificationDurationSeconds == 5,
+            "Existing settings without a duration use the five-second default");
+        File.WriteAllText(config, "{\"NotificationDurationSeconds\":99}");
+        Check(AppSettings.Load(out _, config).NotificationDurationSeconds == 5,
+            "An out-of-range saved duration is limited to five seconds");
+        File.WriteAllText(config, "{\"NotificationDurationSeconds\":0}");
+        Check(AppSettings.Load(out _, config).NotificationDurationSeconds == 1,
+            "A nonpositive saved duration is limited to one second");
+        var durationWindow = new MainWindow(config, new TestStartupRegistration());
+        try
+        {
+            Check(durationWindow.NotificationDurationSelector.Items.Cast<int>().SequenceEqual(Enumerable.Range(1, 5))
+                && (int)durationWindow.NotificationDurationSelector.SelectedItem == 1,
+                "The notification duration selector offers exactly one through five seconds and loads the saved value");
+            durationWindow.NotificationDurationSelector.SelectedItem = 3;
+            Check(AppSettings.Load(out _, config).NotificationDurationSeconds == 3,
+                "Changing the duration saves immediately without stopping monitoring or closing the app");
+            var restored = new MainWindow(config, new TestStartupRegistration());
+            try
+            {
+                Check((int)restored.NotificationDurationSelector.SelectedItem == 3,
+                    "Reopening the app restores its chosen notification duration");
+            }
+            finally { restored.ExitApp(); }
+            durationWindow.NotificationDurationSelector.SelectedItem = 1;
+            durationWindow.TestNotificationButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var popup = durationWindow.NotificationPopup!;
+            popup.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0)
+                { RoutedEvent = UIElement.MouseLeaveEvent });
+            await WaitUntil(() => !popup.IsArriving);
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            await WaitUntil(() => !popup.IsVisible);
+            Check(popup.DisplayDuration == TimeSpan.FromSeconds(1) && timer.Elapsed.TotalSeconds >= .9
+                && timer.Elapsed.TotalSeconds < 2.5,
+                "The actual notification uses the selected one-second lifetime and completes its smooth departure");
+            durationWindow.NotificationDurationSelector.SelectedItem = 5;
+            durationWindow.TestNotificationButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            popup.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0)
+                { RoutedEvent = UIElement.MouseLeaveEvent });
+            await WaitUntil(() => !popup.IsArriving);
+            await Task.Delay(1400);
+            Check(popup.IsVisible && !popup.IsDeparting && popup.DisplayDuration == TimeSpan.FromSeconds(5),
+                "The reused notification applies five seconds instead of retaining its previous one-second lifetime");
+            durationWindow.NotificationDurationSelector.SelectedItem = 1;
+            Check(popup.IsVisible && !popup.IsArriving && popup.DisplayDuration == TimeSpan.FromSeconds(1),
+                "Changing duration while a popup is visible resets its lifetime without replaying its entrance");
+            await WaitUntil(() => !popup.IsVisible);
+        }
+        finally { durationWindow.ExitApp(); }
+        var invalidConfig = Directory.CreateDirectory(Path.Combine(root, "settings-is-a-directory")).FullName;
+        var failed = new MainWindow(invalidConfig, new TestStartupRegistration());
+        try
+        {
+            failed.NotificationDurationSelector.SelectedItem = 2;
+            Check((int)failed.NotificationDurationSelector.SelectedItem == 5
+                && failed.Activities.Any(row => row.Title == "알림 시간 저장 실패"),
+                "A duration save failure restores the previous selection and explains the failure");
+        }
+        finally { failed.ExitApp(); }
     }
 
     private static async Task TestNotificationLifetime()

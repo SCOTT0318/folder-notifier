@@ -27,6 +27,7 @@ internal partial class NotificationWindow : Window
     internal bool IsArriving { get; private set; }
     internal bool IsDeparting { get; private set; }
     internal double ArrivalOffset => ArrivalTranslation.Y;
+    internal TimeSpan DisplayDuration => dismissal.Interval;
     internal IReadOnlyList<NotificationFile> DisplayedFiles { get; private set; } = Array.Empty<NotificationFile>();
 
     internal NotificationWindow(Action openApp, TimeSpan? duration = null, bool? animationsEnabled = null)
@@ -37,11 +38,18 @@ internal partial class NotificationWindow : Window
         animateArrival = animationsEnabled ?? SystemParameters.ClientAreaAnimation;
         dismissal = new DispatcherTimer
         {
-            Interval = duration ?? TimeSpan.FromSeconds(8)
+            Interval = duration ?? TimeSpan.FromSeconds(5)
         };
         dismissal.Tick += (_, _) => Dismiss();
         SizeChanged += (_, _) => PositionOnDesktop();
         Closed += (_, _) => dismissal.Stop();
+    }
+
+    internal void SetDisplayDuration(int seconds)
+    {
+        dismissal.Stop();
+        dismissal.Interval = TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 5));
+        if (IsVisible && !IsArriving && !IsDeparting && !pointerOver) dismissal.Start();
     }
 
     internal void ShowNotification(string title, string message, IReadOnlyList<string>? files = null, string? folder = null, bool isPreview = false)

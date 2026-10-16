@@ -79,6 +79,8 @@ internal static class Program
                     "A filesystem event displays the tray notification before the old two-second polling interval");
                 Console.WriteLine($"Tray event-to-popup latency: {detectionMilliseconds:F0} ms");
                 var popup = Popup(window)!;
+                Check((TimeSpan)Get(popup, "DisplayDuration")! == TimeSpan.FromSeconds(5),
+                    "The installed tray popup defaults to the configured five-second lifetime");
                 var entranceObserved = (bool)Get(popup, "IsArriving")!;
                 if (SystemParameters.ClientAreaAnimation)
                     Check(entranceObserved && (double)Get(popup, "ArrivalOffset")! > 0,
@@ -126,10 +128,16 @@ internal static class Program
                 CheckBadge(window, expectedCount: 1);
                 Check(!window.IsVisible, "The app stays in the tray after the popup disappears");
 
+                Control<ComboBox>(window, "NotificationDurationSelector").SelectedItem = 1;
+                using (var saved = JsonDocument.Parse(File.ReadAllText(config)))
+                    Check(saved.RootElement.GetProperty("NotificationDurationSeconds").GetInt32() == 1,
+                        "Changing the installed notification duration saves immediately while monitoring in the tray");
                 File.WriteAllText(Path.Combine(folder, "추가 자료 1.txt"), "batch 1");
                 File.WriteAllText(Path.Combine(folder, "추가 자료 2.txt"), "batch 2");
                 await WaitUntil(() => Count(window) == 3 && popup.IsVisible);
                 Check(Control<TextBlock>(window, "FileCount").Text == "3", "Additional real files accumulate while hidden");
+                Check((TimeSpan)Get(popup, "DisplayDuration")! == TimeSpan.FromSeconds(1),
+                    "Real files detected in the tray use the newly selected one-second lifetime");
                 Check((string?)Get(window, "LastDetectionSource") == "FileSystemEvent", "Additional files also use the realtime event path");
                 Check(ContainsFilename(popup, "추가 자료 1.txt") && ContainsFilename(popup, "추가 자료 2.txt"),
                     "Both actual batch filenames are displayed in separate notification rows");

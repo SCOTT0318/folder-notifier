@@ -8,6 +8,12 @@ internal sealed class AppSettings
     public string Folder { get; set; } = "";
     public bool IncludeSubfolders { get; set; }
     public bool StartOnLaunch { get; set; }
+    private int notificationDurationSeconds = 5;
+    public int NotificationDurationSeconds
+    {
+        get => notificationDurationSeconds;
+        set => notificationDurationSeconds = Math.Clamp(value, 1, 5);
+    }
 
     internal static string DefaultSettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
