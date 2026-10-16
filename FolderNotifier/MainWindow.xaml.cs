@@ -8,6 +8,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shell;
+using System.Windows.Controls;
 using FolderNotifier.Core;
 using Forms = System.Windows.Forms;
 
@@ -71,6 +72,8 @@ internal partial class MainWindow : Window
         Icon = Imaging.CreateBitmapSourceFromHIcon(appIcon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
         BrandIcon.Source = new BitmapImage(new Uri("pack://application:,,,/FolderNotifier;component/Assets/folder-notifier.png"));
         InboxGraphic.Source = NotificationArtwork.Bell;
+        FolderGraphic.Source = NotificationArtwork.Folder;
+        FolderInput.TextChanged += (_, _) => UpdateFolderHeading();
         var version = typeof(MainWindow).Assembly.GetName().Version!;
         AppVersionText.Text = $"v{version.Major}.{version.Minor}.{version.Build}";
         ActivityList.ItemsSource = Activities;
@@ -87,6 +90,7 @@ internal partial class MainWindow : Window
         trayStop.Click += (_, _) => OnUi(async () => await StopMonitoringAsync());
         settings = AppSettings.Load(out var loadError, settingsPath);
         FolderInput.Text = settings.Folder;
+        UpdateFolderHeading();
         RecursiveSwitch.IsChecked = settings.IncludeSubfolders;
         AutoStartSwitch.IsChecked = settings.StartOnLaunch;
         if (loadError is not null) AddHistory("설정 오류", loadError);
@@ -237,8 +241,8 @@ internal partial class MainWindow : Window
         UnreadCountBadge.Visibility = unread ? Visibility.Visible : Visibility.Collapsed;
         UnreadCountText.Text = UnreadNotificationCount > 99 ? "99+" : UnreadNotificationCount.ToString("N0");
         UnreadCountBadge.ToolTip = $"미확인 알림 {UnreadNotificationCount:N0}개";
-        InboxStatus.Text = unread ? "확인하지 않은 알림이 있어요"
-            : latestNotification is null ? "새 알림을 기다리고 있어요" : "알림을 모두 확인했어요";
+        InboxStatus.Text = unread ? "확인할 알림이 있어요"
+            : latestNotification is null ? "새 알림을 기다려요" : "모두 확인했어요";
         InboxSummary.Text = latestNotification?.Files is { Count: > 0 } files
             ? string.Join(" · ", files.Take(2).Select(Path.GetFileName)) + (files.Count > 2 ? $" 외 {files.Count - 2}개" : "")
             : latestNotification?.Title ?? "도착한 파일을 이곳에서 확인하세요";
@@ -252,6 +256,24 @@ internal partial class MainWindow : Window
         NotificationPopup ??= new NotificationWindow(ShowWindow);
         NotificationPopup.ShowNotification(latest.Title, latest.Message, latest.Files, latest.Folder, latest.IsPreview);
     }
+
+    private void UpdateFolderHeading()
+    {
+        var path = FolderInput.Text.Trim();
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        MonitorFolderName.Text = path.Length == 0 ? "폴더를 연결하세요" : string.IsNullOrEmpty(name) ? path : name;
+        MonitorFolderName.ToolTip = path;
+    }
+
+    private void SelectNavigation(Button selected, FrameworkElement section)
+    {
+        foreach (var button in new[] { MonitorNavButton, ActivityNavButton, SettingsNavButton })
+            button.Tag = button == selected ? "selected" : null;
+        section.BringIntoView();
+    }
+    private void NavigateMonitor(object sender, RoutedEventArgs e) => SelectNavigation(MonitorNavButton, MonitorCard);
+    private void NavigateActivity(object sender, RoutedEventArgs e) => SelectNavigation(ActivityNavButton, ActivityCard);
+    private void NavigateSettings(object sender, RoutedEventArgs e) => SelectNavigation(SettingsNavButton, SettingsCard);
 
     private static ImageSource CreateUnreadOverlay(int count)
     {
@@ -372,6 +394,7 @@ internal partial class MainWindow : Window
         StatusBadge.Background = (Brush)new BrushConverter().ConvertFromString(background)!;
         var color = (Brush)new BrushConverter().ConvertFromString(foreground)!;
         StatusDot.Fill = StatusText.Foreground = color;
+        FolderGraphic.Source = text == "감시 중" && IsRealtimeMonitoring ? NotificationArtwork.ConnectedFolder : NotificationArtwork.Folder;
     }
 
     private void NotifyAdded(IReadOnlyList<string> files)

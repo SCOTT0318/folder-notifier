@@ -6,7 +6,7 @@
 - 기본 설치 위치: `%LOCALAPPDATA%\Programs\FolderNotifier`
 - 한국어 설치 화면, Windows 밝음/어두움 설정을 따르는 Windows 11 설치 스타일
 - 시작 메뉴 바로가기, 선택적 바탕 화면 바로가기, 설치 후 앱 실행
-- 앱 설정의 **로그인 시 자동 실행** 옵션으로 로그인 후 트레이 감시 시작 / 해제
+- 앱 설정의 **로그인 시 실행** 옵션으로 로그인 후 트레이 감시 시작 / 해제
 - 제거 시 해당 설치 경로를 가리키는 자동 실행 등록 삭제
 - Windows **설정 → 앱 → 설치된 앱 → 폴더 알림 → 제거** 지원
 - `%LOCALAPPDATA%\FolderNotifier\settings.json`의 사용자 설정은 업데이트/제거 중 유지
@@ -24,15 +24,15 @@
 제한된 실행 환경에서 기본 임시 폴더의 실행 파일 리소스 수정이 허용되지 않으면 `-StagingRoot`에 쓰기 가능한 로컬 임시 폴더를 지정할 수 있습니다.
 
 ```powershell
-.\build-installer.ps1 -SkipPublish -AppVersion 1.6.0
+.\build-installer.ps1 -SkipPublish -AppVersion 1.7.0
 .\installer\verify-installer.ps1
 ```
 
 버전별 별도 배포 폴더를 지정하려면 두 명령에 같은 `-PublishDirectory`를 전달합니다.
 
 ```powershell
-.\build-installer.ps1 -SkipPublish -PublishDirectory 'dist\FolderNotifier-1.6.0'
-.\installer\verify-installer.ps1 -PublishDirectory 'dist\FolderNotifier-1.6.0'
+.\build-installer.ps1 -SkipPublish -PublishDirectory 'dist\FolderNotifier-1.7.0'
+.\installer\verify-installer.ps1 -PublishDirectory 'dist\FolderNotifier-1.7.0'
 ```
 
 검증 스크립트는 같은 설치 EXE를 작업 폴더 아래 격리된 경로로 설치하고 파일 해시/제거를 검사합니다. `/SMOKETEST=1` 옵션으로 시작 메뉴/바탕 화면 바로가기, 설치 앱 등록, 별도 실행 중인 사용자 앱의 mutex 검사를 생략하며, 앱을 실행/종료하거나 실제 사용자 설정을 변경하지 않습니다. 일반 설치/제거에는 실행 중인 앱 확인이 적용됩니다.

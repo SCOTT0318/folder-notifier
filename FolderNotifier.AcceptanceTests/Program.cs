@@ -79,6 +79,10 @@ internal static class Program
                     "A filesystem event displays the tray notification before the old two-second polling interval");
                 Console.WriteLine($"Tray event-to-popup latency: {detectionMilliseconds:F0} ms");
                 var popup = Popup(window)!;
+                var entranceObserved = (bool)Get(popup, "IsArriving")!;
+                if (SystemParameters.ClientAreaAnimation)
+                    Check(entranceObserved && (double)Get(popup, "ArrivalOffset")! > 0,
+                        "The installed tray notification begins a real upward entrance animation");
                 Check(!window.IsVisible && !IsWindowVisible(mainHandle), "A detected file leaves the main window hidden");
                 Check(IsWindowVisible(new WindowInteropHelper(popup).Handle), "A new file creates a visible native Windows notification window");
                 Check(!popup.IsActive && popup.Topmost, "The file notification is topmost without taking input focus");
@@ -87,6 +91,11 @@ internal static class Program
                     && Control<Border>(popup, "PopupCountBadge").IsVisible && Control<TextBlock>(popup, "PopupCount").Text == "1",
                     "The installed popup renders vector notification artwork and a red count badge");
                 CheckBadge(window, expectedCount: 1);
+                await WaitUntil(() => !(bool)Get(popup, "IsArriving")!);
+                var settledMilliseconds = detectionTimer.Elapsed.TotalMilliseconds;
+                Check((double)Get(popup, "ArrivalOffset")! == 0 && Control<Border>(popup, "ArrivalSurface").Opacity == 1
+                    && popup.IsVisible && !popup.IsActive,
+                    "The installed notification finishes its slide at full opacity without taking focus");
                 SavePreview(popup, Path.Combine(evidence, "file-notification.png"));
                 var tray = (Forms.NotifyIcon)Get(window, "tray")!;
                 using (var bitmap = tray.Icon!.ToBitmap()) bitmap.Save(Path.Combine(evidence, "selected-unread-tray-icon.png"));
@@ -134,7 +143,8 @@ internal static class Program
                     success = true, assemblySha256 = assemblyHash, coreAssemblySha256 = coreHash, version = assembly.GetName().Version?.ToString(),
                     passedChecks = passed, shellTrayRectangle = new { shellRect.Left, shellRect.Top, shellRect.Right, shellRect.Bottom },
                     exactInputAssemblies = true, realFilesCreated = 3,
-                    detectionMilliseconds, detectionSource = (string?)Get(window, "LastDetectionSource"),
+                    detectionMilliseconds, settledMilliseconds, entranceObserved, entranceEnabled = SystemParameters.ClientAreaAnimation,
+                    detectionSource = (string?)Get(window, "LastDetectionSource"),
                     nativePopupVisible = true, mainHiddenDuringDetection = true,
                     unreadBadgePersistsAfterPopup = true, acknowledgmentClearsBadge = true,
                     evidenceNote = "Icon PNGs show the icon selected by the running app, not a screenshot of the Windows taskbar.",

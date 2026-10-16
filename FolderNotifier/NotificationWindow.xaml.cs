@@ -1,8 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
-using System.Runtime.InteropServices;
-using System.Windows.Interop;
 using System.Windows.Threading;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -23,13 +21,19 @@ internal partial class NotificationWindow : Window
     private readonly DispatcherTimer dismissal;
     private readonly Action openApp;
     private bool disposing;
+    private readonly bool animateArrival;
+    private int presentation;
+    private bool pointerOver;
+    internal bool IsArriving { get; private set; }
+    internal double ArrivalOffset => ArrivalTranslation.Y;
     internal IReadOnlyList<NotificationFile> DisplayedFiles { get; private set; } = Array.Empty<NotificationFile>();
 
-    internal NotificationWindow(Action openApp, TimeSpan? duration = null)
+    internal NotificationWindow(Action openApp, TimeSpan? duration = null, bool? animationsEnabled = null)
     {
         InitializeComponent();
         NotificationGraphic.Source = NotificationArtwork.UnreadBell;
         this.openApp = openApp;
+        animateArrival = animationsEnabled ?? SystemParameters.ClientAreaAnimation;
         dismissal = new DispatcherTimer
         {
             Interval = duration ?? TimeSpan.FromSeconds(8)
@@ -37,16 +41,13 @@ internal partial class NotificationWindow : Window
         dismissal.Tick += (_, _) => Dismiss();
         SizeChanged += (_, _) => PositionOnDesktop();
         Closed += (_, _) => dismissal.Stop();
-        SourceInitialized += (_, _) =>
-        {
-            // Windows 11 supplies native corners and shadow without a transparent window.
-            var corners = 2;
-            DwmSetWindowAttribute(new WindowInteropHelper(this).Handle, 33, ref corners, sizeof(int));
-        };
     }
 
     internal void ShowNotification(string title, string message, IReadOnlyList<string>? files = null, string? folder = null, bool isPreview = false)
     {
+        var alreadyVisible = IsVisible;
+        pointerOver = IsMouseOver;
+        ResetArrival();
         dismissal.Stop();
         NotificationTitle.Text = title;
         NotificationMessage.Text = message;
@@ -66,14 +67,54 @@ internal partial class NotificationWindow : Window
         PopupCount.Text = hasFiles ? files!.Count.ToString("N0") : "!";
         PopupCountBadge.Visibility = Visibility.Visible;
         // A single popup is reused; bursts update its content and restart its lifetime.
+        if (!alreadyVisible && animateArrival)
+        {
+            ArrivalSurface.Opacity = 0;
+            ArrivalTranslation.Y = 36;
+        }
         PositionOnDesktop();
         Show();
         UpdateLayout();
         PositionOnDesktop();
-        if (SystemParameters.ClientAreaAnimation)
+        if (!alreadyVisible && animateArrival) BeginArrival();
+        if (animateArrival)
             BellRotation.BeginAnimation(RotateTransform.AngleProperty,
                 new DoubleAnimation(-7, 7, TimeSpan.FromMilliseconds(110)) { AutoReverse = true, RepeatBehavior = new RepeatBehavior(3), FillBehavior = FillBehavior.Stop });
-        if (!IsMouseOver) dismissal.Start();
+        if (!IsArriving && !pointerOver) dismissal.Start();
+    }
+
+    private void BeginArrival()
+    {
+        IsArriving = true;
+        var current = presentation;
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var duration = TimeSpan.FromMilliseconds(320);
+        var slide = new DoubleAnimation(36, 0, duration) { EasingFunction = ease };
+        var fade = new DoubleAnimation(0, 1, duration) { EasingFunction = ease };
+        // Keep the base at the hidden start until WPF's first animation tick; otherwise
+        // the final card can flash for one frame before its clock becomes active.
+        slide.Completed += (_, _) =>
+        {
+            if (current != presentation || !IsVisible || disposing) return;
+            ArrivalTranslation.Y = 0;
+            ArrivalSurface.Opacity = 1;
+            ArrivalTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+            ArrivalSurface.BeginAnimation(OpacityProperty, null);
+            IsArriving = false;
+            if (!pointerOver) dismissal.Start();
+        };
+        ArrivalTranslation.BeginAnimation(TranslateTransform.YProperty, slide);
+        ArrivalSurface.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void ResetArrival()
+    {
+        presentation++;
+        IsArriving = false;
+        ArrivalTranslation.BeginAnimation(TranslateTransform.YProperty, null);
+        ArrivalSurface.BeginAnimation(OpacityProperty, null);
+        ArrivalTranslation.Y = 0;
+        ArrivalSurface.Opacity = 1;
     }
 
     private void PositionOnDesktop()
@@ -85,8 +126,8 @@ internal partial class NotificationWindow : Window
         Top = Math.Max(area.Top, area.Bottom - ActualHeight - 12);
     }
 
-    internal void Dismiss() { dismissal.Stop(); Hide(); }
-    internal void ClosePermanently() { disposing = true; Close(); }
+    internal void Dismiss() { dismissal.Stop(); ResetArrival(); Hide(); }
+    internal void ClosePermanently() { dismissal.Stop(); ResetArrival(); disposing = true; Close(); }
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!disposing) { e.Cancel = true; Dismiss(); }
@@ -94,16 +135,15 @@ internal partial class NotificationWindow : Window
     }
     private void DismissClicked(object sender, RoutedEventArgs e) => Dismiss();
     private void OpenClicked(object sender, RoutedEventArgs e) { Dismiss(); openApp(); }
-    private void PauseDismissal(object sender, MouseEventArgs e) => dismissal.Stop();
+    private void PauseDismissal(object sender, MouseEventArgs e) { pointerOver = true; dismissal.Stop(); }
     private void ResumeDismissal(object sender, MouseEventArgs e)
     {
-        if (IsVisible) { dismissal.Stop(); dismissal.Start(); }
+        pointerOver = false;
+        if (IsVisible && !IsArriving) { dismissal.Stop(); dismissal.Start(); }
     }
     private void NotificationKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape) { Dismiss(); e.Handled = true; }
     }
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 }

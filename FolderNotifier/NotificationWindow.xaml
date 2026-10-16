@@ -4,11 +4,14 @@
     x:ClassModifier="internal" Title="폴더 알림 팝업"
     Width="420" SizeToContent="Height" WindowStyle="None" ResizeMode="NoResize"
     ShowInTaskbar="False" ShowActivated="False" Topmost="True"
-    WindowStartupLocation="Manual" Background="#F5F8FD"
-    FontFamily="Segoe UI Variable, Malgun Gothic" FontSize="14"
+    WindowStartupLocation="Manual" Background="Transparent" AllowsTransparency="True"
+    FontFamily="Segoe UI Variable, Malgun Gothic" FontSize="14" Foreground="{StaticResource Ink}"
     UseLayoutRounding="True" TextOptions.TextFormattingMode="Display" KeyDown="NotificationKeyDown"
     MouseEnter="PauseDismissal" MouseLeave="ResumeDismissal">
-    <Border Background="#F5F8FD" BorderBrush="#D6E0EF" BorderThickness="1" CornerRadius="14">
+    <Grid ClipToBounds="True">
+    <Border x:Name="ArrivalSurface" Background="#F5F8FD" BorderBrush="#D6E0EF" BorderThickness="1" CornerRadius="14" Margin="8">
+        <Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.16" Color="#173452"/></Border.Effect>
+        <Border.RenderTransform><TranslateTransform x:Name="ArrivalTranslation"/></Border.RenderTransform>
         <StackPanel>
             <Grid Margin="20,14,12,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -70,4 +73,5 @@
             </Border>
         </StackPanel>
     </Border>
+    </Grid>
 </Window>

@@ -1,6 +1,6 @@
 ; Build with build-installer.ps1. The payload includes the Windows Desktop runtime.
 #ifndef AppVersion
-  #define AppVersion "1.6.0"
+  #define AppVersion "1.7.0"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\dist\FolderNotifier-" + AppVersion

@@ -40,6 +40,9 @@ internal static class Program
                 Check(window.Height <= SystemParameters.WorkArea.Height && window.Width <= SystemParameters.WorkArea.Width,
                     "Initial window fits the available desktop");
                 SavePreview(window, Path.Combine(parent, "ui-preview-idle.png"));
+                Check(window.MonitorNavButton.IsVisible && window.ActivityNavButton.IsVisible && window.SettingsNavButton.IsVisible
+                    && window.FolderGraphic.Source is DrawingImage,
+                    "The redesigned workspace includes navigation and a graphical folder panel");
                 Check(ReferenceEquals(window.InboxGraphic.Source, NotificationArtwork.Bell)
                     && window.UnreadCountBadge.Visibility == Visibility.Collapsed && !window.NotificationInboxButton.IsEnabled,
                     "The dedicated notification card starts with a drawn bell and no unread badge");
@@ -63,6 +66,7 @@ internal static class Program
                 Check(window.UnreadNotificationCount == 1 && window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is not null
                     && window.TrayTooltip.Contains("미확인 1개") && window.MarkReadButton.Visibility == Visibility.Visible,
                     "Test notification sets the tray badge, taskbar overlay, unread count and tooltip");
+                await WaitUntil(() => !popup.IsArriving);
                 SavePreview(popup, Path.Combine(parent, "ui-preview-notification.png"));
                 Check(popup.NotificationGraphic.Source is DrawingImage && popup.NotificationGraphic.ActualWidth >= 64
                     && popup.PopupCount.Text == "2" && popup.PopupCountBadge.IsVisible,
@@ -87,6 +91,7 @@ internal static class Program
                 SavePreview(window, Path.Combine(parent, "ui-preview-unread-card.png"));
                 popup.Dismiss();
                 await TestNotificationLifetime();
+                await TestArrivalAnimation(parent);
                 await TestFilenameLayout(parent);
                 window.MarkReadButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null
@@ -97,6 +102,8 @@ internal static class Program
                     "Acknowledgment resets the card graphic while retaining access to the latest alert");
                 TestIconFrames();
                 window.FolderInput.Text = folder;
+                Check(window.MonitorFolderName.Text == "감시 폴더" && (string)window.MonitorFolderName.ToolTip == folder,
+                    "The folder panel identifies the selected folder and retains its full path");
                 window.RecursiveSwitch.IsChecked = true;
                 window.LoginStartupSwitch.IsChecked = true;
                 Check(startup.IsEnabled, "Login startup is registered immediately");
@@ -115,6 +122,8 @@ internal static class Program
                 await WaitUntil(() => window.StatusText.Text == "감시 중");
                 Check(window.IsRealtimeMonitoring && window.StatusDetail.Text.Contains("실시간 이벤트 감시"),
                     "Monitoring starts with filesystem events and accurately reports its mode");
+                Check(ReferenceEquals(window.FolderGraphic.Source, NotificationArtwork.ConnectedFolder),
+                    "The folder graphic reflects an active realtime connection");
                 Check(!window.FolderInput.IsEnabled && !window.RecursiveSwitch.IsEnabled && !window.AutoStartSwitch.IsEnabled,
                     "Monitoring locks the folder and options");
                 Check(window.StopButton.IsEnabled, "Stop enabled while monitoring");
@@ -151,6 +160,17 @@ internal static class Program
                 Check(window.RecursiveSwitch.TransformToAncestor(window).Transform(new Point(window.RecursiveSwitch.ActualWidth, 0)).X < window.ActualWidth,
                     "Settings remain inside the minimum window");
                 SavePreview(window, Path.Combine(parent, "ui-preview-minimum.png"));
+                window.SettingsNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Task.Delay(100);
+                Check(window.RootScroller.VerticalOffset > 0
+                    && window.SettingsCard.TransformToAncestor(window.RootScroller).Transform(new Point(0, window.SettingsCard.ActualHeight)).Y <= window.RootScroller.ActualHeight,
+                    "Sidebar navigation brings settings into view on a small window");
+                Check(((SolidColorBrush)window.SettingsNavButton.Background).Color != ((SolidColorBrush)window.MonitorNavButton.Background).Color,
+                    "Sidebar navigation visibly distinguishes the selected section");
+                window.MonitorNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Task.Delay(100);
+                Check(window.MonitorCard.TransformToAncestor(window.RootScroller).Transform(new Point()).Y >= -1,
+                    "Sidebar navigation returns to the monitoring panel");
                 window.RootScroller.ScrollToBottom();
                 await Task.Delay(200);
                 Check(window.ExitButton.TransformToAncestor(window).Transform(new Point(0, window.ExitButton.ActualHeight)).Y < window.ActualHeight,
@@ -159,6 +179,8 @@ internal static class Program
                 window.StopButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await WaitUntil(() => window.StartButton.IsEnabled);
                 Check(window.FolderInput.IsEnabled && window.RecursiveSwitch.IsEnabled, "Stop restores editing");
+                Check(ReferenceEquals(window.FolderGraphic.Source, NotificationArtwork.Folder),
+                    "Stopping monitoring resets the folder graphic");
                 var settings = AppSettings.Load(out var error, config);
                 Check(error is null && settings.Folder == folder && settings.IncludeSubfolders, "Settings preserve the existing format");
                 File.WriteAllText(config, "invalid JSON");
@@ -298,9 +320,64 @@ internal static class Program
         finally { popup.ClosePermanently(); }
     }
 
+    private static async Task TestArrivalAnimation(string parent)
+    {
+        var popup = new NotificationWindow(() => { }, TimeSpan.FromSeconds(2), animationsEnabled: true);
+        try
+        {
+            popup.ShowNotification("새 파일 도착", "", new[] { "실시간 입고 자료.xlsx" }, @"D:\업무 자료");
+            Check(popup.IsArriving && popup.ArrivalOffset >= 35 && popup.ArrivalSurface.Opacity < .1,
+                "A hidden notification starts below its final position and fully faded");
+            SavePreview(popup, Path.Combine(parent, "ui-preview-animation-start.png"));
+            await Task.Delay(110);
+            Check(popup.IsVisible && popup.IsArriving && popup.ArrivalOffset > 0 && popup.ArrivalOffset < 36
+                && popup.ArrivalSurface.Opacity > 0 && popup.ArrivalSurface.Opacity < 1,
+                "The notification visibly slides upward and fades in during its entrance");
+            SavePreview(popup, Path.Combine(parent, "ui-preview-animation-middle.png"));
+            await WaitUntil(() => !popup.IsArriving);
+            Check(popup.ArrivalOffset == 0 && popup.ArrivalSurface.Opacity == 1 && !popup.IsActive,
+                "Entrance settles at full opacity without taking keyboard focus");
+            SavePreview(popup, Path.Combine(parent, "ui-preview-animation-finished.png"));
+            popup.ShowNotification("추가 파일 도착", "", new[] { "두 번째 파일.pdf" });
+            Check(!popup.IsArriving && popup.ArrivalOffset == 0 && popup.ArrivalSurface.Opacity == 1,
+                "Updating an already visible popup does not replay the slide or flash");
+            popup.Dismiss();
+            popup.ShowNotification("닫기 테스트", "등장 도중 닫기");
+            popup.Dismiss();
+            await Task.Delay(400);
+            Check(!popup.IsVisible && !popup.IsArriving && popup.ArrivalOffset == 0,
+                "Dismissing during entrance cancels animation without later resurrecting the popup");
+        }
+        finally { popup.ClosePermanently(); }
+        var reduced = new NotificationWindow(() => { }, animationsEnabled: false);
+        try
+        {
+            reduced.ShowNotification("동작 줄이기", "애니메이션 설정을 따릅니다.");
+            Check(!reduced.IsArriving && reduced.ArrivalOffset == 0 && reduced.ArrivalSurface.Opacity == 1,
+                "Reduced-motion mode shows the popup immediately without animation");
+        }
+        finally { reduced.ClosePermanently(); }
+        var shortLived = new NotificationWindow(() => { }, TimeSpan.FromMilliseconds(100), animationsEnabled: true);
+        try
+        {
+            shortLived.ShowNotification("표시 시간", "등장이 끝난 뒤부터 표시 시간을 셉니다.");
+            await Task.Delay(180);
+            Check(shortLived.IsVisible && shortLived.IsArriving, "Auto-dismiss cannot expire before entrance finishes");
+            shortLived.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0)
+                { RoutedEvent = UIElement.MouseEnterEvent });
+            await Task.Delay(400);
+            Check(shortLived.IsVisible && !shortLived.IsArriving, "Hover during entrance keeps the completed notification visible");
+            shortLived.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0)
+                { RoutedEvent = UIElement.MouseLeaveEvent });
+            await WaitUntil(() => !shortLived.IsVisible);
+            Check(!shortLived.IsVisible, "Leaving the completed entrance starts the normal display lifetime");
+        }
+        finally { shortLived.ClosePermanently(); }
+    }
+
     private static async Task TestNotificationLifetime()
     {
-        var popup = new NotificationWindow(() => { }, TimeSpan.FromMilliseconds(500));
+        var popup = new NotificationWindow(() => { }, TimeSpan.FromMilliseconds(500), animationsEnabled: false);
         try
         {
             popup.ShowNotification("자동 닫힘 테스트", "처음 알림");
