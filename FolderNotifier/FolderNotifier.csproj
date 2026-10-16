@@ -8,7 +8,7 @@
     <StartupObject>FolderNotifier.Program</StartupObject>
     <Nullable>enable</Nullable>
     <AssemblyName>FolderNotifier</AssemblyName>
-    <Version>1.3.0</Version>
+    <Version>1.3.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\folder-notifier.ico</ApplicationIcon>
   </PropertyGroup>
@@ -17,5 +17,7 @@
     <EmbeddedResource Include="Assets\folder-notifier.ico" LogicalName="FolderNotifier.AppIcon.ico" />
     <EmbeddedResource Include="Assets\folder-notifier-unread.ico" LogicalName="FolderNotifier.UnreadIcon.ico" />
     <Resource Include="Assets\folder-notifier.png" />
+    <Content Include="Assets\folder-notifier.ico" Link="folder-notifier-v2.ico"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

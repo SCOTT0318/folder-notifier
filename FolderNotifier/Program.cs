@@ -7,6 +7,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        ShellIdentity.Configure();
         var atLogin = args.Contains("--startup", StringComparer.OrdinalIgnoreCase);
         using var instance = new Mutex(true, @"Local\FolderNotifier.Desktop", out var firstInstance);
         if (!firstInstance)

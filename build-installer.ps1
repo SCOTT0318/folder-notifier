@@ -1,6 +1,6 @@
 param(
     [switch]$SkipPublish,
-    [string]$AppVersion = '1.3.0',
+    [string]$AppVersion = '1.3.1',
     [string]$PublishDirectory,
     [string]$StagingRoot,
     [string]$CompilerPath

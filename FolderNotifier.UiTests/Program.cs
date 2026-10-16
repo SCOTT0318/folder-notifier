@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -17,6 +18,10 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        ShellIdentity.Configure();
+        Marshal.ThrowExceptionForHR(GetCurrentProcessExplicitAppUserModelID(out var appId));
+        try { Check(Marshal.PtrToStringUni(appId) == ShellIdentity.AppUserModelId, "Windows receives the explicit taskbar app identity"); }
+        finally { Marshal.FreeCoTaskMem(appId); }
         var parent = Path.GetFullPath(args.Length > 0 ? args[0] : ".");
         var root = Path.Combine(parent, "FolderNotifier-tests-" + Guid.NewGuid().ToString("N"));
         var folder = Directory.CreateDirectory(Path.Combine(root, "감시 폴더")).FullName;
@@ -336,4 +341,7 @@ internal static class Program
         if (!condition) throw new InvalidOperationException(message);
         Console.WriteLine("PASS " + message);
     }
+
+    [DllImport("shell32.dll")]
+    private static extern int GetCurrentProcessExplicitAppUserModelID(out IntPtr appId);
 }

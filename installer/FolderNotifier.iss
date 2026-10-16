@@ -1,6 +1,6 @@
 ; Build with build-installer.ps1. The payload includes the Windows Desktop runtime.
 #ifndef AppVersion
-  #define AppVersion "1.3.0"
+  #define AppVersion "1.3.1"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\dist\FolderNotifier-" + AppVersion
@@ -32,7 +32,7 @@ OutputDir={#OutputDir}
 OutputBaseFilename=FolderNotifier-Setup
 SetupIconFile=..\FolderNotifier\Assets\folder-notifier.ico
 WizardSmallImageFile=..\FolderNotifier\Assets\folder-notifier.png
-UninstallDisplayIcon={app}\FolderNotifier.exe
+UninstallDisplayIcon={app}\folder-notifier-v2.ico
 UninstallDisplayName=폴더 알림
 Uninstallable=yes
 CreateUninstallRegKey=not IsSmokeTest
@@ -73,9 +73,9 @@ Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; Flags: unchecked
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\폴더 알림"; Filename: "{app}\FolderNotifier.exe"; WorkingDir: "{app}"; Check: not IsSmokeTest
+Name: "{group}\폴더 알림"; Filename: "{app}\FolderNotifier.exe"; WorkingDir: "{app}"; IconFilename: "{app}\folder-notifier-v2.ico"; AppUserModelID: "FolderNotifier.Desktop"; Check: not IsSmokeTest
 Name: "{group}\{cm:UninstallShortcut}"; Filename: "{uninstallexe}"; Check: not IsSmokeTest
-Name: "{autodesktop}\폴더 알림"; Filename: "{app}\FolderNotifier.exe"; WorkingDir: "{app}"; Tasks: desktopicon; Check: not IsSmokeTest
+Name: "{autodesktop}\폴더 알림"; Filename: "{app}\FolderNotifier.exe"; WorkingDir: "{app}"; IconFilename: "{app}\folder-notifier-v2.ico"; AppUserModelID: "FolderNotifier.Desktop"; Tasks: desktopicon; Check: not IsSmokeTest
 
 [Run]
 Filename: "{app}\FolderNotifier.exe"; WorkingDir: "{app}"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent; Check: not IsSmokeTest

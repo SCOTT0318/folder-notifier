@@ -13,7 +13,7 @@ Windows 11에서 지정한 폴더에 새 파일이 추가되면 화면 오른쪽
 
 설치 파일 하나에 앱과 런타임이 포함되어 있어 ZIP 압축 해제나 별도 런타임 설치가 필요 없습니다. 현재 사용자에게 설치되며, Windows **설정 → 앱 → 설치된 앱 → 폴더 알림**에서 제거합니다. 설정 파일은 업데이트 / 제거 시 유지합니다. 앱이 실행 중인 상태에서 업데이트하려면 트레이 메뉴의 **종료**로 먼저 종료하세요.
 
-설치하지 않고 사용할 때는 `dist/FolderNotifier-1.3.0/FolderNotifier.exe`를 실행합니다.
+설치하지 않고 사용할 때는 `dist/FolderNotifier-1.3.1/FolderNotifier.exe`를 실행합니다.
 
 **닫기(X)** 또는 **트레이로 숨기기**를 누르면 트레이에서 계속 실행됩니다. 트레이 아이콘을 두 번 클릭하면 창이 열립니다. 완전히 끝내려면 **앱 종료** 또는 트레이 메뉴의 **종료**를 사용하세요.
 
@@ -63,7 +63,7 @@ dotnet run --project FolderNotifier.AcceptanceTests -c Release -- $installedDll 
 .\build.ps1 -SelfContained
 ```
 
-배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.3.0`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
+배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.3.1`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
 
 일반 빌드를 사용한다면 `dist/FolderNotifier/FolderNotifier.exe`를 실행합니다.
 
@@ -79,6 +79,8 @@ dotnet run --project FolderNotifier.AcceptanceTests -c Release -- $installedDll 
 ## 앱 아이콘
 
 투명 여백을 줄인 파란 폴더와 굵은 흰색 종 모양을 실행 파일, 창, 트레이에 적용합니다. 일반 / 미확인용 아이콘을 따로 생성하며 미확인 아이콘에는 빨간 느낌표 배지가 붙습니다. 두 ICO 모두 16 / 20 / 24 / 32 / 40 / 48 / 64 / 128 / 256px 프레임을 포함하고 트레이 크기에 맞는 프레임을 원본 ICO에서 직접 선택합니다.
+
+작업표시줄은 앱 시작 시 지정하는 `FolderNotifier.Desktop` AppUserModelID와 동일한 ID를 가진 설치 바로가기로 연결합니다. 시작 메뉴 / 바탕 화면 바로가기와 설치 앱 목록에는 별도 배포 파일 `folder-notifier-v2.ico`를 지정하여 이전 EXE 아이콘 캐시와 구분합니다. 이 ICO도 배포 폴더에 함께 포함해야 합니다.
 
 원본과 미리보기는 `FolderNotifier/Assets/`의 SVG / PNG / ICO 파일입니다. 아이콘을 다시 생성하려면 다음 명령을 실행한 뒤 앱을 빌드합니다.
 
