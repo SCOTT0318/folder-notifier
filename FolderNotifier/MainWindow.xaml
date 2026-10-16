@@ -6,24 +6,44 @@
     FontSize="14" UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
     <ScrollViewer x:Name="RootScroller" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}"
         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" CanContentScroll="False">
-    <Grid x:Name="MainSurface" Background="#F6F8FB" MinWidth="840" MinHeight="730" Width="{Binding ActualWidth, ElementName=RootScroller}" Height="{Binding ActualHeight, ElementName=RootScroller}">
+    <Grid x:Name="MainSurface" Background="#F6F8FB" MinWidth="840" MinHeight="760" Width="{Binding ActualWidth, ElementName=RootScroller}" Height="{Binding ActualHeight, ElementName=RootScroller}">
     <Grid Margin="32,28,32,18">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="28"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image x:Name="BrandIcon" Width="48" Height="48" Margin="0,0,16,0" RenderOptions.BitmapScalingMode="HighQuality"/>
-                <StackPanel><TextBlock Text="폴더 알림" FontSize="27" FontWeight="SemiBold"/>
-                    <TextBlock Text="파일이 도착하는 순간, 놓치지 않도록." Foreground="{StaticResource Muted}" FontSize="13" Margin="0,5,0,0"/>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="400"/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <Image x:Name="BrandIcon" Width="52" Height="52" Margin="0,0,16,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel><TextBlock Text="폴더 알림" FontSize="29" FontWeight="SemiBold"/>
+                        <TextBlock Text="새 파일이 도착하면, 바로 알려드려요." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="68,12,0,0">
+                    <TextBlock Text="이번 실행" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="FileCount" Text="0" FontSize="18" FontWeight="SemiBold" Margin="10,0,3,0"/>
+                    <TextBlock Text="개 발견" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
                 </StackPanel>
             </StackPanel>
-            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                <TextBlock Text="이번 실행에서 발견한 파일" FontSize="11" Foreground="{StaticResource Muted}"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,0,0">
-                    <TextBlock x:Name="FileCount" Text="0" FontSize="32" FontWeight="SemiBold"/>
-                    <TextBlock Text="개" Foreground="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="6,0,0,7" FontSize="12"/>
-                </StackPanel>
-            </StackPanel>
+            <Border x:Name="NotificationCard" Grid.Column="2" Background="White" BorderBrush="#DFE7F2" BorderThickness="1" CornerRadius="12" Padding="16" AutomationProperties.Name="미확인 알림 카드">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Image x:Name="InboxGraphic" Width="64" Height="64" HorizontalAlignment="Left" VerticalAlignment="Top" AutomationProperties.Name="알림 상태 종 그래픽"/>
+                    <StackPanel Grid.Column="1">
+                        <Grid>
+                            <TextBlock Text="미확인 알림" FontSize="12" Foreground="{StaticResource Muted}"/>
+                            <Border x:Name="UnreadCountBadge" Visibility="Collapsed" Background="#E84E5D" CornerRadius="10" Padding="7,2" HorizontalAlignment="Right">
+                                <TextBlock x:Name="UnreadCountText" Foreground="White" FontSize="11" FontWeight="Bold"/>
+                            </Border>
+                        </Grid>
+                        <TextBlock x:Name="InboxStatus" Text="새 알림을 기다리고 있어요" FontSize="16" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="InboxSummary" Text="도착한 파일을 이곳에서 확인하세요" FontSize="11" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,5,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="NotificationInboxButton" Content="최근 알림 보기" Click="ShowLatestNotification" IsEnabled="False" FontSize="11" Padding="10,6" MinHeight="30"/>
+                            <Button x:Name="TestNotificationButton" Content="미리보기" Click="TestNotificationClicked" Style="{StaticResource QuietButton}" FontSize="11" Padding="10,6" MinHeight="30" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="268"/></Grid.ColumnDefinitions>
@@ -102,7 +122,7 @@
                             <Grid ToolTip="{Binding Detail}">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="66"/></Grid.ColumnDefinitions>
                                 <Border Width="34" Height="38" CornerRadius="7" Background="{Binding IconBackground}" HorizontalAlignment="Left">
-                                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons" FontSize="17" Foreground="{Binding IconForeground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Image Source="{Binding Artwork}" Width="30" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
                                     <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
@@ -148,23 +168,19 @@
                         </Grid>
                         <TextBlock x:Name="StartupHint" Text="로그인 후 트레이에서 감시" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
-                    <StackPanel Grid.Row="2" Margin="0,28,0,0">
-                        <Border Background="#F2F6FD" CornerRadius="8" Padding="14">
-                            <StackPanel>
-                                <TextBlock Text="알림은 이렇게 도착해요" FontSize="13" FontWeight="SemiBold"/>
-                                <TextBlock Text="파일 이름이 표시되는 팝업을&#x0a;미리 확인해 보세요." FontSize="12" Foreground="{StaticResource Muted}" Margin="0,8,0,14" LineHeight="19"/>
-                                <Button x:Name="TestNotificationButton" Content="알림 미리보기" Click="TestNotificationClicked" HorizontalAlignment="Stretch"/>
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="팝업은 8초 동안 표시됩니다.&#x0a;미확인 파일은 빨간 배지로 남습니다." FontSize="11" Foreground="{StaticResource Muted}" Margin="2,12,0,0" LineHeight="18"/>
-                    </StackPanel>
+                    <Border Grid.Row="2" Background="#F1F5FC" CornerRadius="10" Padding="16" Margin="0,24,0,0">
+                        <StackPanel>
+                            <TextBlock Text="작은 표시도 놓치지 않도록" FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Text="팝업이 닫혀도 빨간 배지로&#x0a;미확인 알림을 알려드려요." FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" LineHeight="20" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>
         <Grid Grid.Row="3" Margin="0,14,0,0">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="&#xE73E;" FontFamily="Segoe Fluent Icons" Foreground="#7292BD" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBlock Text="트레이에서도 감시는 계속됩니다." Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock x:Name="AppVersionText" Text="v1.6.0" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,14,0"/><TextBlock Text="트레이에서도 감시는 계속됩니다." Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="HideButton" Content="트레이로 숨기기" Click="HideClicked" Style="{StaticResource QuietButton}"/>

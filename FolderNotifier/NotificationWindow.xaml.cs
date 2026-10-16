@@ -4,6 +4,8 @@ using System.Windows.Input;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 
 namespace FolderNotifier;
 
@@ -11,6 +13,7 @@ internal sealed record NotificationFile(string Name, string FullPath)
 {
     public string Extension => Path.GetExtension(Name).TrimStart('.').ToUpperInvariant() is { Length: > 0 } extension
         ? extension.Length <= 5 ? extension : "FILE" : "FILE";
+    public ImageSource Icon => NotificationArtwork.File(Extension);
 }
 
 // An independent window stays visible when the main window is hidden to the tray.
@@ -25,6 +28,7 @@ internal partial class NotificationWindow : Window
     internal NotificationWindow(Action openApp, TimeSpan? duration = null)
     {
         InitializeComponent();
+        NotificationGraphic.Source = NotificationArtwork.UnreadBell;
         this.openApp = openApp;
         dismissal = new DispatcherTimer
         {
@@ -58,12 +62,17 @@ internal partial class NotificationWindow : Window
         OverflowText.Visibility = files?.Count > 3 ? Visibility.Visible : Visibility.Collapsed;
         NotificationKind.Text = isPreview ? "알림 미리보기" : hasFiles ? "감시 폴더에 추가됨" : "안내";
         NotificationTime.Text = DateTime.Now.ToString("HH:mm");
-        OpenAppButton.Content = hasFiles ? "파일 목록 보기  →" : "폴더 알림 열기  →";
+        OpenActionText.Text = hasFiles ? "파일 목록 보기  →" : "폴더 알림 열기  →";
+        PopupCount.Text = hasFiles ? files!.Count.ToString("N0") : "!";
+        PopupCountBadge.Visibility = Visibility.Visible;
         // A single popup is reused; bursts update its content and restart its lifetime.
         PositionOnDesktop();
         Show();
         UpdateLayout();
         PositionOnDesktop();
+        if (SystemParameters.ClientAreaAnimation)
+            BellRotation.BeginAnimation(RotateTransform.AngleProperty,
+                new DoubleAnimation(-7, 7, TimeSpan.FromMilliseconds(110)) { AutoReverse = true, RepeatBehavior = new RepeatBehavior(3), FillBehavior = FillBehavior.Stop });
         if (!IsMouseOver) dismissal.Start();
     }
 

@@ -19,6 +19,7 @@ internal sealed record ActivityEntry(string Title, string Detail, bool IsFile, D
     public string Glyph => IsFile ? "\uE8A5" : "\uE946";
     public string IconBackground => IsFile ? "#EAF0FF" : "#F1F3F7";
     public string IconForeground => IsFile ? "#2563EB" : "#78849A";
+    public ImageSource Artwork => IsFile ? NotificationArtwork.File(Path.GetExtension(Title).TrimStart('.')) : NotificationArtwork.Bell;
 }
 
 internal partial class MainWindow : Window
@@ -43,6 +44,8 @@ internal partial class MainWindow : Window
     private bool firstLoad = true;
     private bool changingStartup;
     private string trayStatus = "대기 중";
+    private sealed record NotificationSnapshot(string Title, string Message, IReadOnlyList<string>? Files, string? Folder, bool IsPreview);
+    private NotificationSnapshot? latestNotification;
 
     internal int UnreadNotificationCount { get; private set; }
     internal string TrayTooltip => tray.Text;
@@ -67,6 +70,9 @@ internal partial class MainWindow : Window
         unreadTrayIcon = AppIcon.Load(unread: true, size: Forms.SystemInformation.SmallIconSize);
         Icon = Imaging.CreateBitmapSourceFromHIcon(appIcon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
         BrandIcon.Source = new BitmapImage(new Uri("pack://application:,,,/FolderNotifier;component/Assets/folder-notifier.png"));
+        InboxGraphic.Source = NotificationArtwork.Bell;
+        var version = typeof(MainWindow).Assembly.GetName().Version!;
+        AppVersionText.Text = $"v{version.Major}.{version.Minor}.{version.Build}";
         ActivityList.ItemsSource = Activities;
         trayMenu.Items.Add("창 열기", null, (_, _) => OnUi(ShowWindow));
         trayMenu.Items.Add(trayStart);
@@ -181,6 +187,7 @@ internal partial class MainWindow : Window
         if (closing || sessionEnding) return;
         if (unreadCount > 0)
         {
+            latestNotification = new(title, message, files?.ToArray(), folder, isPreview);
             UnreadNotificationCount = (int)Math.Min(int.MaxValue, (long)UnreadNotificationCount + unreadCount);
             UpdateNotificationIndicator();
         }
@@ -191,6 +198,8 @@ internal partial class MainWindow : Window
     {
         MarkNotificationsRead();
         Activities.Clear(); totalAdded = 0; FileCount.Text = "0"; EmptyState.Visibility = Visibility.Visible;
+        latestNotification = null;
+        UpdateInboxCard();
     }
 
     private void MarkReadClicked(object sender, RoutedEventArgs e) => MarkNotificationsRead();
@@ -216,6 +225,32 @@ internal partial class MainWindow : Window
         MarkReadButton.Content = $"알림 확인 ({UnreadNotificationCount:N0})";
         TaskbarItemInfo.Description = unread ? $"폴더 알림 · 미확인 {UnreadNotificationCount:N0}개" : "폴더 알림 · 미확인 알림 없음";
         TaskbarItemInfo.Overlay = unread ? CreateUnreadOverlay(UnreadNotificationCount) : null;
+        UpdateInboxCard();
+    }
+
+    private void UpdateInboxCard()
+    {
+        var unread = UnreadNotificationCount > 0;
+        InboxGraphic.Source = unread ? NotificationArtwork.UnreadBell : NotificationArtwork.Bell;
+        NotificationCard.Background = (Brush)new BrushConverter().ConvertFromString(unread ? "#FFF5F5" : "#FFFFFF")!;
+        NotificationCard.BorderBrush = (Brush)new BrushConverter().ConvertFromString(unread ? "#F2C3C8" : "#DFE7F2")!;
+        UnreadCountBadge.Visibility = unread ? Visibility.Visible : Visibility.Collapsed;
+        UnreadCountText.Text = UnreadNotificationCount > 99 ? "99+" : UnreadNotificationCount.ToString("N0");
+        UnreadCountBadge.ToolTip = $"미확인 알림 {UnreadNotificationCount:N0}개";
+        InboxStatus.Text = unread ? "확인하지 않은 알림이 있어요"
+            : latestNotification is null ? "새 알림을 기다리고 있어요" : "알림을 모두 확인했어요";
+        InboxSummary.Text = latestNotification?.Files is { Count: > 0 } files
+            ? string.Join(" · ", files.Take(2).Select(Path.GetFileName)) + (files.Count > 2 ? $" 외 {files.Count - 2}개" : "")
+            : latestNotification?.Title ?? "도착한 파일을 이곳에서 확인하세요";
+        InboxSummary.ToolTip = InboxSummary.Text;
+        NotificationInboxButton.IsEnabled = latestNotification is not null;
+    }
+
+    private void ShowLatestNotification(object sender, RoutedEventArgs e)
+    {
+        if (closing || sessionEnding || latestNotification is not { } latest) return;
+        NotificationPopup ??= new NotificationWindow(ShowWindow);
+        NotificationPopup.ShowNotification(latest.Title, latest.Message, latest.Files, latest.Folder, latest.IsPreview);
     }
 
     private static ImageSource CreateUnreadOverlay(int count)

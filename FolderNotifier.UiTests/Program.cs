@@ -40,6 +40,11 @@ internal static class Program
                 Check(window.Height <= SystemParameters.WorkArea.Height && window.Width <= SystemParameters.WorkArea.Width,
                     "Initial window fits the available desktop");
                 SavePreview(window, Path.Combine(parent, "ui-preview-idle.png"));
+                Check(ReferenceEquals(window.InboxGraphic.Source, NotificationArtwork.Bell)
+                    && window.UnreadCountBadge.Visibility == Visibility.Collapsed && !window.NotificationInboxButton.IsEnabled,
+                    "The dedicated notification card starts with a drawn bell and no unread badge");
+                Check(window.AppVersionText.Text == "v" + typeof(MainWindow).Assembly.GetName().Version!.ToString(3),
+                    "The visible version identifies the installed UI revision");
                 window.FolderInput.Focus();
                 window.TestNotificationButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Task.Delay(200);
@@ -59,18 +64,37 @@ internal static class Program
                     && window.TrayTooltip.Contains("미확인 1개") && window.MarkReadButton.Visibility == Visibility.Visible,
                     "Test notification sets the tray badge, taskbar overlay, unread count and tooltip");
                 SavePreview(popup, Path.Combine(parent, "ui-preview-notification.png"));
+                Check(popup.NotificationGraphic.Source is DrawingImage && popup.NotificationGraphic.ActualWidth >= 64
+                    && popup.PopupCount.Text == "2" && popup.PopupCountBadge.IsVisible,
+                    "The popup displays large vector bell artwork and a graphical count badge");
+                Check(Images(popup.FileList).Any(image => ReferenceEquals(image.Source, popup.DisplayedFiles[0].Icon))
+                    && Images(popup.FileList).Any(image => ReferenceEquals(image.Source, popup.DisplayedFiles[1].Icon))
+                    && !ReferenceEquals(popup.DisplayedFiles[0].Icon, popup.DisplayedFiles[1].Icon),
+                    "PDF and spreadsheet rows render distinct graphical file icons");
+                Check(ReferenceEquals(window.InboxGraphic.Source, NotificationArtwork.UnreadBell)
+                    && window.UnreadCountBadge.IsVisible && window.UnreadCountText.Text == "1"
+                    && window.InboxSummary.Text.Contains("월간 보고서.pdf"),
+                    "New notifications update the main card bell, red badge and filename summary");
                 window.TestNotificationButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(ReferenceEquals(popup, window.NotificationPopup), "Repeated test reuses one popup");
                 popup.DismissButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(!popup.IsVisible, "Notification close button dismisses the popup");
                 Check(window.UnreadNotificationCount == 2 && window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is not null,
                     "Dismissing a popup preserves the unread badge and accumulates notifications");
+                window.NotificationInboxButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Check(popup.IsVisible && window.UnreadNotificationCount == 2 && window.UnreadCountText.Text == "2",
+                    "The main notification card can reopen the latest alert without adding unread counts");
+                SavePreview(window, Path.Combine(parent, "ui-preview-unread-card.png"));
+                popup.Dismiss();
                 await TestNotificationLifetime();
                 await TestFilenameLayout(parent);
                 window.MarkReadButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null
                     && window.MarkReadButton.Visibility == Visibility.Collapsed && window.FileCount.Text == "0",
                     "Mark-read clears both badges without changing detected-file totals");
+                Check(ReferenceEquals(window.InboxGraphic.Source, NotificationArtwork.Bell)
+                    && window.UnreadCountBadge.Visibility == Visibility.Collapsed && window.NotificationInboxButton.IsEnabled,
+                    "Acknowledgment resets the card graphic while retaining access to the latest alert");
                 TestIconFrames();
                 window.FolderInput.Text = folder;
                 window.RecursiveSwitch.IsChecked = true;
@@ -161,6 +185,8 @@ internal static class Program
                 window.ClearHistoryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null
                     && window.Activities.Count == 0, "Clearing history also clears unread indicators");
+                Check(!window.NotificationInboxButton.IsEnabled && window.UnreadCountBadge.Visibility == Visibility.Collapsed,
+                    "Clearing history clears the latest-alert card as well");
                 window.ExitApp();
                 await Task.Delay(200);
                 Check(!popup.IsVisible && !app.Windows.Cast<Window>().Contains(popup), "App exit closes the notification window");
@@ -254,7 +280,7 @@ internal static class Program
             Check(popup.FolderContext.Text.EndsWith("2026년 10월") && popup.FolderContext.ToolTip is string,
                 "Notification folder context retains its full path in a tooltip");
             var presenter = (ContentPresenter)popup.FileList.ItemContainerGenerator.ContainerFromIndex(0);
-            Check(presenter.ActualHeight <= 120 && presenter.ActualHeight > 40,
+            Check(presenter.ActualHeight <= 150 && presenter.ActualHeight > 40,
                 "Long filenames wrap within a bounded row instead of pushing actions off-screen");
             Check(popup.OpenAppButton.TransformToAncestor(popup).Transform(new Point(0, popup.OpenAppButton.ActualHeight)).Y <= popup.ActualHeight
                 && popup.Top + popup.ActualHeight <= SystemParameters.WorkArea.Bottom,
@@ -326,6 +352,16 @@ internal static class Program
                     { left = Math.Min(left, x); top = Math.Min(top, y); right = Math.Max(right, x); bottom = Math.Max(bottom, y); }
             Check(right - left + 1 >= size * .9 && bottom - top + 1 >= size * .84,
                 $"Icon fills the {size}px canvas with limited transparent padding");
+        }
+    }
+
+    private static System.Collections.Generic.IEnumerable<Image> Images(DependencyObject parent)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is Image image) yield return image;
+            foreach (var nested in Images(child)) yield return nested;
         }
     }
 

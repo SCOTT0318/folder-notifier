@@ -4,15 +4,15 @@
     x:ClassModifier="internal" Title="폴더 알림 팝업"
     Width="420" SizeToContent="Height" WindowStyle="None" ResizeMode="NoResize"
     ShowInTaskbar="False" ShowActivated="False" Topmost="True"
-    WindowStartupLocation="Manual" Background="White"
+    WindowStartupLocation="Manual" Background="#F5F8FD"
     FontFamily="Segoe UI Variable, Malgun Gothic" FontSize="14"
     UseLayoutRounding="True" TextOptions.TextFormattingMode="Display" KeyDown="NotificationKeyDown"
     MouseEnter="PauseDismissal" MouseLeave="ResumeDismissal">
-    <Border Background="White" BorderBrush="#DCE3EE" BorderThickness="1" CornerRadius="12">
+    <Border Background="#F5F8FD" BorderBrush="#D6E0EF" BorderThickness="1" CornerRadius="14">
         <StackPanel>
-            <Grid Margin="22,16,14,0">
+            <Grid Margin="20,14,12,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBlock Text="&#xEA8F;" FontFamily="Segoe Fluent Icons" Foreground="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,9,0" FontSize="16"/>
+                <Image Source="pack://application:,,,/FolderNotifier;component/Assets/folder-notifier.png" Width="22" Height="22" Margin="0,0,8,0"/>
                 <TextBlock Grid.Column="1" Text="폴더 알림" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
                 <TextBlock x:Name="NotificationTime" Grid.Column="2" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <Button x:Name="DismissButton" Grid.Column="3" Click="DismissClicked" Style="{StaticResource QuietButton}"
@@ -20,38 +20,52 @@
                     <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons" FontSize="11" Foreground="{StaticResource Muted}"/>
                 </Button>
             </Grid>
-            <StackPanel Margin="22,16,22,20">
-                <TextBlock x:Name="NotificationKind" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
-                <TextBlock x:Name="NotificationTitle" FontSize="21" FontWeight="SemiBold" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                <TextBlock x:Name="NotificationMessage" Margin="0,10,0,0" Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
-                <StackPanel x:Name="FilePanel" Margin="0,16,0,0" Visibility="Collapsed">
-                    <Border Background="#F5F7FB" CornerRadius="8" BorderBrush="#E8EDF5" BorderThickness="1" Padding="14,4">
-                        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <ItemsControl x:Name="FileList" AutomationProperties.Name="추가된 파일 이름">
-                                <ItemsControl.ItemTemplate><DataTemplate>
-                                    <Grid Margin="0,12" ToolTip="{Binding FullPath}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <Border Width="30" Height="36" Background="White" BorderBrush="#DCE4F0" BorderThickness="1" CornerRadius="4" VerticalAlignment="Top" HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding Extension}" FontSize="8" FontWeight="Bold" Foreground="#41699E" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="96" LineHeight="24" VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}"/>
-                                    </Grid>
-                                </DataTemplate></ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
+            <Grid Margin="16,18,22,8">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="92"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid Width="80" Height="80" HorizontalAlignment="Left">
+                    <Image x:Name="NotificationGraphic" Width="80" Height="80" RenderTransformOrigin="0.5,0.35" AutomationProperties.Name="새 알림 종 그래픽">
+                        <Image.RenderTransform><RotateTransform x:Name="BellRotation"/></Image.RenderTransform>
+                    </Image>
+                    <Border x:Name="PopupCountBadge" Background="#E84E5D" BorderBrush="White" BorderThickness="2" CornerRadius="12" Padding="6,2" MinWidth="24" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,0,0">
+                        <TextBlock x:Name="PopupCount" Text="1" FontSize="11" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
                     </Border>
-                    <TextBlock x:Name="OverflowText" FontSize="12" Foreground="{StaticResource Accent}" Margin="0,10,0,0"/>
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="FolderContext" Grid.Column="1" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
-                    </Grid>
+                </Grid>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="NotificationKind" FontSize="11" FontWeight="SemiBold" Foreground="#B34353"/>
+                    <TextBlock x:Name="NotificationTitle" FontSize="21" FontWeight="SemiBold" Margin="0,7,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
+            </Grid>
+            <TextBlock x:Name="NotificationMessage" Margin="22,6,22,20" Foreground="{StaticResource Muted}" TextWrapping="Wrap" MaxHeight="160" TextTrimming="CharacterEllipsis"/>
+            <StackPanel x:Name="FilePanel" Margin="20,4,20,20" Visibility="Collapsed">
+                <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="FileList" AutomationProperties.Name="추가된 파일 이름">
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                            <Border Background="White" BorderBrush="#E1E8F3" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,4" ToolTip="{Binding FullPath}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Image Source="{Binding Icon}" Width="44" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" AutomationProperties.Name="{Binding Extension}"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="96" LineHeight="24" AutomationProperties.Name="{Binding Name}"/>
+                                        <TextBlock Text="{Binding Extension}" Foreground="{StaticResource Muted}" FontSize="10" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <TextBlock x:Name="OverflowText" FontSize="12" Foreground="{StaticResource Accent}" Margin="0,10,0,0"/>
+                <Grid Margin="2,14,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="FolderContext" Grid.Column="1" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                </Grid>
             </StackPanel>
-            <Border Background="#FAFBFD" BorderBrush="#E8EDF5" BorderThickness="0,1,0,0" Padding="14,8">
+            <Border Background="White" BorderBrush="#E1E8F3" BorderThickness="0,1,0,0" Padding="14,10">
                 <Grid>
                     <TextBlock Text="마우스를 올리면 계속 표시" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                    <Button x:Name="OpenAppButton" Click="OpenClicked" HorizontalAlignment="Right" Style="{StaticResource QuietButton}" Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
+                    <Button x:Name="OpenAppButton" Click="OpenClicked" HorizontalAlignment="Right" Style="{StaticResource PrimaryButton}" Padding="12,9" FontSize="12" MinHeight="36">
+                        <TextBlock x:Name="OpenActionText" Text="파일 목록 보기 →" Foreground="White"/>
+                    </Button>
                 </Grid>
             </Border>
         </StackPanel>

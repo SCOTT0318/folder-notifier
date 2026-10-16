@@ -61,6 +61,8 @@ internal static class Program
                 await WaitUntil(() => Control<TextBlock>(window, "StatusText").Text == "감시 중");
                 Check(Control<TextBlock>(window, "FileCount").Text == "0" && Count(window) == 0, "Baseline files do not create unread notifications");
                 Check((bool)Get(window, "IsRealtimeMonitoring")!, "The supplied assembly arms realtime filesystem events");
+                Check(Control<TextBlock>(window, "AppVersionText").Text == "v" + assembly.GetName().Version!.ToString(3),
+                    "The installed screen identifies its exact UI version");
                 Click(window, "HideButton");
                 await WaitUntil(() => !window.IsVisible);
                 var mainHandle = new WindowInteropHelper(window).Handle;
@@ -81,6 +83,9 @@ internal static class Program
                 Check(IsWindowVisible(new WindowInteropHelper(popup).Handle), "A new file creates a visible native Windows notification window");
                 Check(!popup.IsActive && popup.Topmost, "The file notification is topmost without taking input focus");
                 Check(ContainsFilename(popup, "실제 추가 파일.txt"), "The popup contains the actual added filename");
+                Check(Control<Image>(popup, "NotificationGraphic").Source is DrawingImage
+                    && Control<Border>(popup, "PopupCountBadge").IsVisible && Control<TextBlock>(popup, "PopupCount").Text == "1",
+                    "The installed popup renders vector notification artwork and a red count badge");
                 CheckBadge(window, expectedCount: 1);
                 SavePreview(popup, Path.Combine(evidence, "file-notification.png"));
                 var tray = (Forms.NotifyIcon)Get(window, "tray")!;
@@ -108,10 +113,16 @@ internal static class Program
                 Check(ContainsFilename(popup, "추가 자료 1.txt") && ContainsFilename(popup, "추가 자료 2.txt"),
                     "Both actual batch filenames are displayed in separate notification rows");
                 CheckBadge(window, expectedCount: 3);
+                Check(Control<TextBlock>(window, "UnreadCountText").Text == "3"
+                    && Control<Border>(window, "UnreadCountBadge").Visibility == Visibility.Visible
+                    && Control<Image>(window, "InboxGraphic").Source is DrawingImage,
+                    "The main notification card retains its graphical unread state while hidden to the tray");
                 Click(popup, "OpenAppButton");
                 await WaitUntil(() => window.IsVisible && !popup.IsVisible);
                 Check(Count(window) == 0 && !(bool)Get(window, "HasUnreadTrayIcon")! && window.TaskbarItemInfo.Overlay is null,
                     "Opening the app from the popup clears the tray and taskbar badges");
+                Check(Control<Border>(window, "UnreadCountBadge").Visibility == Visibility.Collapsed,
+                    "Acknowledgment also clears the dedicated notification card badge");
                 Check(Control<TextBlock>(window, "FileCount").Text == "3", "Acknowledging notifications preserves the detected-file total");
                 using (var bitmap = tray.Icon!.ToBitmap()) bitmap.Save(Path.Combine(evidence, "selected-read-tray-icon.png"));
                 SavePreview(window, Path.Combine(evidence, "acknowledged-window.png"));
