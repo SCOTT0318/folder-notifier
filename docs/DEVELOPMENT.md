@@ -1,6 +1,6 @@
 # 폴더 알림
 
-Windows 11에서 지정한 폴더에 새 파일이 추가되면 작업 표시줄 알림을 표시하는 데스크톱 앱입니다.
+Windows 11에서 지정한 폴더에 새 파일이 추가되면 화면 오른쪽 아래에 알림 팝업을 표시하는 데스크톱 앱입니다.
 
 ## 실행 방법
 
@@ -9,11 +9,11 @@ Windows 11에서 지정한 폴더에 새 파일이 추가되면 작업 표시줄
 3. **폴더 선택**으로 감시할 폴더 지정 (공유 폴더의 UNC 경로 직접 입력 가능)
 4. 필요하면 **하위 폴더 포함** 선택
 5. **감시 시작** 클릭
-6. **알림 테스트**로 Windows 알림 표시 확인
+6. **알림 테스트**로 실제 파일 감지와 같은 팝업 표시 확인
 
 설치 파일 하나에 앱과 런타임이 포함되어 있어 ZIP 압축 해제나 별도 런타임 설치가 필요 없습니다. 현재 사용자에게 설치되며, Windows **설정 → 앱 → 설치된 앱 → 폴더 알림**에서 제거합니다. 설정 파일은 업데이트 / 제거 시 유지합니다. 앱이 실행 중인 상태에서 업데이트하려면 트레이 메뉴의 **종료**로 먼저 종료하세요.
 
-설치하지 않고 사용할 때는 `dist/FolderNotifier-1.2.0/FolderNotifier.exe`를 실행합니다.
+설치하지 않고 사용할 때는 `dist/FolderNotifier-1.3.0/FolderNotifier.exe`를 실행합니다.
 
 **닫기(X)** 또는 **트레이로 숨기기**를 누르면 트레이에서 계속 실행됩니다. 트레이 아이콘을 두 번 클릭하면 창이 열립니다. 완전히 끝내려면 **앱 종료** 또는 트레이 메뉴의 **종료**를 사용하세요.
 
@@ -36,18 +36,26 @@ Windows 자동 실행은 현재 사용자 `HKCU/Software/Microsoft/Windows/Curre
 - 이력은 메모리에 최근 500행만 유지하며 앱 종료 시 사라집니다.
 - 폴더와 옵션은 `%LOCALAPPDATA%/FolderNotifier/settings.json`에 저장합니다. 감시 대상 파일은 수정하지 않습니다.
 
-알림이 보이지 않으면 Windows **설정 → 시스템 → 알림**과 **방해 금지** 상태를 확인하세요. **알림 테스트**는 알림 표시 요청만 수행하며, 실제 배너 표시 여부는 Windows 설정에 따라 달라집니다.
+**알림 테스트**는 실제 파일 감지와 동일한 독립 WPF 팝업을 표시하고 최근 활동에 테스트 기록을 남깁니다. 팝업은 주 모니터 작업영역의 오른쪽 아래에 기본 8초 동안 표시되며, 마우스를 올리면 자동 닫힘을 멈추고 벗어나면 다시 8초를 셉니다. 새 알림은 기존 팝업의 내용과 표시 시간을 갱신합니다. **앱에서 확인**은 앱 창을 복원하며 **✕** 또는 Escape는 팝업을 닫습니다. 표시 시 입력 포커스를 가져오지 않고 앱이 트레이에 숨겨져 있어도 표시됩니다. 앱 종료 / Windows 세션 종료 시 팝업도 정리합니다.
+
+Windows 배너 알림 / 방해 금지 설정에 의존하지 않으며 Windows 알림 센터에는 저장되지 않습니다. 파일별 이력은 최근 활동에서 확인합니다. 잠금 화면이나 다른 Windows 세션에서의 표시는 지원하지 않습니다.
+
+새 알림은 미확인 수를 누적합니다. 트레이 아이콘은 빨간 느낌표 배지로 바뀌며 툴팁에는 미확인 수가 표시됩니다. 앱 창이 작업표시줄에 있는 동안에는 WPF `TaskbarItemInfo.Overlay`에도 수량 배지를 표시합니다. 팝업 자동 닫힘 / ✕ / Escape / Alt+F4와 주기적 감시 상태 갱신은 미확인 표시를 지우지 않습니다. 앱 창을 열거나 다시 활성화하거나 **알림 확인**을 누르면 배지만 지웁니다. **이력 비우기**는 배지와 이력을 함께 지웁니다. 새 파일은 파일 수, 테스트 / 오류는 발생 건수로 누적하며 트레이 숨김 안내는 포함하지 않습니다. 미확인 상태는 메모리에 유지하며 재실행 시 초기화됩니다.
 
 ## 개발 및 빌드
 
-.NET 10 SDK와 Windows가 필요합니다. C# WPF와 .NET 내장 Fluent 테마 기반이며 트레이 알림에는 Windows Forms NotifyIcon을 사용합니다. 외부 NuGet 라이브러리와 Python / Conda 의존성은 없습니다. 창은 작업영역에 맞춰 열리고, 작은 화면에서는 스크롤로 모든 조작부에 접근할 수 있습니다.
+.NET 10 SDK와 Windows가 필요합니다. C# WPF와 .NET 내장 Fluent 테마 기반이며 알림은 독립 WPF 창, 트레이 아이콘은 Windows Forms NotifyIcon을 사용합니다. 외부 NuGet 라이브러리와 Python / Conda 의존성은 없습니다. 창은 작업영역에 맞춰 열리고, 작은 화면에서는 스크롤로 모든 조작부에 접근할 수 있습니다.
 
 ```powershell
 dotnet run --project FolderNotifier.Tests -c Release -- .
 dotnet build FolderNotifier.UiTests -c Release -m:1 -nr:false
 dotnet run --project FolderNotifier.UiTests -c Release --no-build -- .
+$installedDll = Join-Path $env:LOCALAPPDATA 'Programs\FolderNotifier\FolderNotifier.dll'
+dotnet run --project FolderNotifier.AcceptanceTests -c Release -- $installedDll 'dist\tray-acceptance'
 .\build.ps1
 ```
+
+`FolderNotifier.AcceptanceTests`는 앱 프로젝트를 참조해 다시 빌드한 복사본 대신 지정한 설치 DLL을 그대로 로드합니다. 별도 설정과 고유한 임시 감시 폴더에서 실제 파일 3개를 생성한 뒤, 트레이 숨김 / native 팝업 표시 / 포커스 비탈취 / Windows Shell 아이콘 등록 / 팝업 자동 종료 후 미확인 유지 / 수량 누적 / 확인 후 해제를 검사합니다. 기존 설치 앱의 설정과 감시 폴더는 변경하지 않습니다. 테스트 파일은 종료 시 삭제하고, JSON 결과와 렌더링 미리보기만 증거 폴더에 남깁니다. 저장된 아이콘 PNG는 실행 앱이 선택한 아이콘이며 작업표시줄 화면을 캡처한 이미지가 아닙니다. Shell 아이콘 조회에는 .NET 10 WinForms의 내부 식별자를 사용하므로 런타임 구조가 바뀌면 검증 코드도 갱신해야 합니다.
 
 기본 빌드 결과는 **.NET 10 Desktop Runtime (x64)**이 설치된 PC에서 실행합니다. 별도 .NET 설치 없이 배포하려면 다음 명령으로 자체 포함 빌드하세요. 최초 빌드 때 Microsoft 런타임 패키지 다운로드가 필요할 수 있습니다.
 
@@ -55,7 +63,7 @@ dotnet run --project FolderNotifier.UiTests -c Release --no-build -- .
 .\build.ps1 -SelfContained
 ```
 
-배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.2.0`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
+배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.3.0`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
 
 일반 빌드를 사용한다면 `dist/FolderNotifier/FolderNotifier.exe`를 실행합니다.
 
@@ -70,7 +78,7 @@ dotnet run --project FolderNotifier.UiTests -c Release --no-build -- .
 
 ## 앱 아이콘
 
-파란 폴더와 노란 알림 배지를 조합한 자체 벡터 아이콘을 실행 파일, 창, 트레이에 적용합니다. ICO에는 16 / 20 / 24 / 32 / 40 / 48 / 64 / 128 / 256px 이미지가 포함됩니다.
+투명 여백을 줄인 파란 폴더와 굵은 흰색 종 모양을 실행 파일, 창, 트레이에 적용합니다. 일반 / 미확인용 아이콘을 따로 생성하며 미확인 아이콘에는 빨간 느낌표 배지가 붙습니다. 두 ICO 모두 16 / 20 / 24 / 32 / 40 / 48 / 64 / 128 / 256px 프레임을 포함하고 트레이 크기에 맞는 프레임을 원본 ICO에서 직접 선택합니다.
 
 원본과 미리보기는 `FolderNotifier/Assets/`의 SVG / PNG / ICO 파일입니다. 아이콘을 다시 생성하려면 다음 명령을 실행한 뒤 앱을 빌드합니다.
 

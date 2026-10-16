@@ -10,14 +10,18 @@ internal static class Program
     // SVG and Windows raster assets use the same geometry, with a transparent backdrop.
     private static readonly (string Fill, string Path)[] Shapes =
     [
-        ("#1D4ED8", "M24 75 Q24 57 42 57 L89 57 Q98 57 104 65 L118 82 L209 82 Q227 82 227 100 L227 187 Q227 207 207 207 L44 207 Q24 207 24 187 Z"),
-        ("#93C5FD", "M44 91 L202 91 Q211 91 211 100 L211 125 L35 125 L35 100 Q35 91 44 91 Z"),
-        ("#3B82F6", "M37 108 L213 108 Q231 108 229 126 L221 190 Q219 207 201 207 L45 207 Q28 207 26 190 L19 128 Q17 108 37 108 Z"),
-        ("#60A5FA", "M37 108 L213 108 Q225 108 228 118 L20 118 Q23 108 37 108 Z"),
-        ("#1E3A8A", "M239 178 A58 58 0 1 1 123 178 A58 58 0 1 1 239 178 Z"),
-        ("#FBBF24", "M232 178 A51 51 0 1 1 130 178 A51 51 0 1 1 232 178 Z"),
-        ("#172554", "M176 147 Q176 141 181 141 Q186 141 186 147 L186 151 Q204 154 204 172 L204 184 Q204 189 211 195 Q214 200 208 200 L154 200 Q148 200 151 195 Q158 189 158 184 L158 172 Q158 154 176 151 Z"),
-        ("#172554", "M172 205 L190 205 Q188 215 181 215 Q174 215 172 205 Z")
+        ("#1D4ED8", "M8 46 Q8 22 32 22 L88 22 Q98 22 106 32 L126 56 L224 56 Q248 56 248 80 L248 212 Q248 240 220 240 L36 240 Q8 240 8 212 Z"),
+        ("#93C5FD", "M32 70 L224 70 L224 108 L32 108 Z"),
+        ("#2563EB", "M30 88 L226 88 Q248 88 246 112 L238 216 Q236 240 212 240 L44 240 Q20 240 18 216 L10 112 Q8 88 30 88 Z"),
+        ("#FFFFFF", "M118 111 Q118 101 128 101 Q138 101 138 111 L138 117 Q168 122 168 153 L168 177 L182 193 Q188 201 176 201 L80 201 Q68 201 74 193 L88 177 L88 153 Q88 122 118 117 Z"),
+        ("#FFFFFF", "M112 210 L144 210 Q142 226 128 226 Q114 226 112 210 Z")
+    ];
+
+    private static readonly (string Fill, string Path)[] Badge =
+    [
+        ("#FFFFFF", "M256 48 A48 48 0 1 1 160 48 A48 48 0 1 1 256 48 Z"),
+        ("#DC2626", "M248 48 A40 40 0 1 1 168 48 A40 40 0 1 1 248 48 Z"),
+        ("#FFFFFF", "M200 22 L216 22 L216 53 L200 53 Z M200 62 L216 62 L216 77 L200 77 Z")
     ];
 
     [STAThread]
@@ -25,15 +29,49 @@ internal static class Program
     {
         var output = Path.GetFullPath(args.Length > 0 ? args[0] : "FolderNotifier/Assets");
         Directory.CreateDirectory(output);
-        var svg = new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\" width=\"256\" height=\"256\" role=\"img\" aria-label=\"Folder with notification bell\">\n");
-        foreach (var (fill, path) in Shapes) svg.AppendLine($"  <path fill=\"{fill}\" d=\"{path}\"/>");
-        svg.AppendLine("</svg>");
-        File.WriteAllText(Path.Combine(output, "folder-notifier.svg"), svg.ToString(), new UTF8Encoding(false));
-        File.WriteAllBytes(Path.Combine(output, "folder-notifier.png"), Render(512));
-
         int[] sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256];
-        var frames = sizes.Select(Render).ToArray();
-        using var writer = new BinaryWriter(File.Create(Path.Combine(output, "folder-notifier.ico")));
+        foreach (var unread in new[] { false, true })
+        {
+            var name = unread ? "folder-notifier-unread" : "folder-notifier";
+            var svg = new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\" width=\"256\" height=\"256\" role=\"img\" aria-label=\"Folder notification icon\">\n");
+            foreach (var (fill, path) in unread ? Shapes.Concat(Badge) : Shapes)
+                svg.AppendLine($"  <path fill=\"{fill}\" d=\"{path}\"/>");
+            svg.AppendLine("</svg>");
+            File.WriteAllText(Path.Combine(output, name + ".svg"), svg.ToString(), new UTF8Encoding(false));
+            File.WriteAllBytes(Path.Combine(output, name + ".png"), Render(512, unread));
+            WriteIcon(Path.Combine(output, name + ".ico"), sizes, unread);
+        }
+
+        // Normal and unread assets at their real tray sizes on both backgrounds.
+        var preview = new DrawingVisual();
+        using (var context = preview.RenderOpen())
+        {
+            context.DrawRectangle(Brushes.White, null, new Rect(0, 0, 640, 360));
+            context.DrawRectangle(new SolidColorBrush(Color.FromRgb(15, 23, 42)), null, new Rect(320, 0, 320, 360));
+            foreach (var left in new[] { 0, 320 })
+            {
+                DrawAt(context, left + 44, 12, 112);
+                DrawAt(context, left + 180, 12, 112, true);
+                var x = left + 24;
+                foreach (var size in new[] { 16, 20, 24, 32, 48 })
+                {
+                    DrawAt(context, x, 174, size);
+                    DrawAt(context, x, 246, size, true);
+                    var brush = left == 0 ? Brushes.SlateGray : Brushes.LightSlateGray;
+                    context.DrawText(new FormattedText($"{size}px", CultureInfo.InvariantCulture,
+                        FlowDirection.LeftToRight, new Typeface("Segoe UI"), 11, brush, 1), new Point(x, 320));
+                    x += 58;
+                }
+            }
+        }
+        SaveDrawing(preview, 640, 360, Path.Combine(output, "icon-preview.png"));
+        Console.WriteLine($"Created normal/unread SVG, PNG, and ICO ({string.Join(", ", sizes)}px): {output}");
+    }
+
+    private static void WriteIcon(string path, int[] sizes, bool unread)
+    {
+        var frames = sizes.Select(size => Render(size, unread)).ToArray();
+        using var writer = new BinaryWriter(File.Create(path));
         writer.Write((ushort)0);
         writer.Write((ushort)1);
         writer.Write((ushort)sizes.Length);
@@ -52,44 +90,22 @@ internal static class Program
         }
         foreach (var frame in frames) writer.Write(frame);
 
-        // A preview sheet keeps the 16/20/24/32px tray renderings visible at actual size.
-        var preview = new DrawingVisual();
-        using (var context = preview.RenderOpen())
-        {
-            context.DrawRectangle(Brushes.White, null, new Rect(0, 0, 640, 340));
-            context.DrawRectangle(new SolidColorBrush(Color.FromRgb(15, 23, 42)), null, new Rect(320, 0, 320, 340));
-            foreach (var left in new[] { 0, 320 })
-            {
-                DrawAt(context, left + 64, 12, 192);
-                var x = left + 36;
-                foreach (var size in new[] { 16, 20, 24, 32, 48 })
-                {
-                    DrawAt(context, x, 250, size);
-                    var brush = left == 0 ? Brushes.SlateGray : Brushes.LightSlateGray;
-                    context.DrawText(new FormattedText($"{size}px", CultureInfo.InvariantCulture,
-                        FlowDirection.LeftToRight, new Typeface("Segoe UI"), 11, brush, 1), new Point(x, 306));
-                    x += 56;
-                }
-            }
-        }
-        SaveDrawing(preview, 640, 340, Path.Combine(output, "icon-preview.png"));
-        Console.WriteLine($"Created SVG, PNG, and ICO ({string.Join(", ", sizes)}px): {output}");
     }
 
-    private static void DrawAt(DrawingContext context, double x, double y, int size)
+    private static void DrawAt(DrawingContext context, double x, double y, int size, bool unread = false)
     {
         context.PushTransform(new TranslateTransform(x, y));
         context.PushTransform(new ScaleTransform(size / 256d, size / 256d));
-        foreach (var (fill, path) in Shapes)
+        foreach (var (fill, path) in unread ? Shapes.Concat(Badge) : Shapes)
             context.DrawGeometry((Brush)new BrushConverter().ConvertFromString(fill)!, null, Geometry.Parse(path));
         context.Pop();
         context.Pop();
     }
 
-    private static byte[] Render(int size)
+    private static byte[] Render(int size, bool unread = false)
     {
         var visual = new DrawingVisual();
-        using (var context = visual.RenderOpen()) DrawAt(context, 0, 0, size);
+        using (var context = visual.RenderOpen()) DrawAt(context, 0, 0, size, unread);
         return Encode(visual, size, size);
     }
 

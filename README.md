@@ -1,7 +1,7 @@
 # 폴더 알림 · Folder Notifier
 
 Windows 11에서 **새 파일이 들어오면 알려주는 폴더 감시 앱**입니다.
-폴더를 선택하고 감시를 시작하면 Windows 알림과 앱의 활동 이력으로 새 파일을 확인할 수 있습니다.
+폴더를 선택하고 감시를 시작하면 화면 오른쪽 아래의 알림 팝업과 앱의 활동 이력으로 새 파일을 확인할 수 있습니다.
 
 ## 다운로드
 
@@ -22,6 +22,7 @@ Windows 11에서 **새 파일이 들어오면 알려주는 폴더 감시 앱**�
 ## 주요 기능
 
 - **새 파일 알림**: 약 2초마다 폴더를 확인하고 추가된 파일을 알립니다.
+- **미확인 알림 배지**: 팝업이 닫힌 뒤에도 트레이의 빨간 배지와 작업표시줄의 알림 수를 유지합니다. 앱을 다시 열거나 **알림 확인**을 누르면 지워집니다.
 - **하위 폴더 감시**: 선택한 폴더 안의 폴더까지 함께 확인합니다.
 - **로그인 자동 실행**: 체크하면 다음 Windows 로그인부터 트레이에서 저장된 폴더를 감시합니다.
 - **트레이 실행**: 창을 닫아도 계속 감시하고, 트레이 아이콘으로 창을 다시 열 수 있습니다.
@@ -74,11 +75,15 @@ Windows의 시작 앱 설정에서 별도로 사용 안 함으로 지정했다�
 - 연결 지점과 심볼릭 링크는 제외합니다. 활동 이력은 앱 종료 시 사라집니다.
 - 감시 대상 파일은 수정하지 않습니다.
 
-알림이 보이지 않으면 **Windows 설정 → 시스템 → 알림**과 **방해 금지**를 확인하세요.
+**알림 테스트**를 누르면 실제 파일 감지와 같은 팝업이 기본 8초 동안 표시되고 최근 활동에도 기록됩니다. 팝업에 마우스를 올리면 자동 닫힘을 잠시 멈춥니다. **앱에서 확인**으로 앱을 열거나 **✕**로 닫을 수 있습니다. 창을 트레이에 숨겨도 팝업은 표시됩니다.
+
+팝업은 앱이 직접 표시하므로 Windows 배너 알림 / 방해 금지 설정의 영향을 받지 않으며, Windows 알림 센터에는 저장되지 않습니다. 여러 알림이 연속으로 발생하면 팝업은 최신 내용으로 갱신되고 파일별 내용은 최근 활동에서 확인할 수 있습니다.
+
+미확인 알림은 트레이 아이콘의 빨간 배지와 툴팁으로 확인합니다. 앱 창이 작업표시줄에 표시되는 동안에는 아이콘에도 알림 수 배지가 붙습니다. 앱으로 돌아오거나 **알림 확인**을 누르면 배지를 지우며 파일 이력은 유지합니다. **이력 비우기**는 배지와 이력을 함께 지웁니다. 테스트 / 오류는 건별, 새 파일은 파일별로 세며 앱 재실행 시 미확인 수는 초기화됩니다.
 
 ## 개발과 빌드
 
-Windows와 **.NET 10 SDK**가 필요합니다. C# WPF / .NET 내장 Fluent 테마를 사용하며, 트레이 알림에는 Windows Forms `NotifyIcon`을 사용합니다.
+Windows와 **.NET 10 SDK**가 필요합니다. C# WPF / .NET 내장 Fluent 테마와 독립 알림 팝업을 사용하며, 트레이 아이콘에는 Windows Forms `NotifyIcon`을 사용합니다.
 
 저장소 루트에서 PowerShell로 실행합니다.
 
@@ -92,6 +97,10 @@ dotnet run --project FolderNotifier.Tests -c Release -- .
 # 화면, 자동 실행 등록 / 해제, 트레이 감시 검증
 dotnet build FolderNotifier.UiTests -c Release -m:1 -nr:false
 dotnet run --project FolderNotifier.UiTests -c Release --no-build -- .
+
+# 설치된 DLL 그대로: 트레이에 숨긴 뒤 실제 파일 추가 / 팝업 / 빨간 배지 검증
+$installedDll = Join-Path $env:LOCALAPPDATA 'Programs\FolderNotifier\FolderNotifier.dll'
+dotnet run --project FolderNotifier.AcceptanceTests -c Release -- $installedDll 'dist\tray-acceptance'
 
 # .NET 런타임을 포함한 앱 빌드
 .\build.ps1 -SelfContained
@@ -107,6 +116,8 @@ dotnet run --project FolderNotifier.UiTests -c Release --no-build -- .
 
 자동 실행 테스트는 전용 테스트 레지스트리 키와 별도 설정 파일을 사용합니다. 설치 검증은 격리 경로에서 진행하며 실제 시작 프로그램 / 바로가기 / 설치 앱 등록과 Windows 재부팅은 테스트에 포함하지 않습니다.
 
+트레이 수용 검증은 설치된 DLL을 직접 불러온 별도 인스턴스에서 임시 파일 3개를 생성합니다. 실제 Windows 팝업 창 표시와 Shell 트레이 아이콘 등록, 빨간 배지 유지 및 확인 후 해제를 검사하며 기존 앱의 감시 폴더와 설정은 변경하지 않습니다. 결과 JSON과 렌더링 미리보기는 지정한 `dist/` 경로에 저장됩니다.
+
 빌드 결과는 `dist/`에 생성되며 Git에 포함하지 않습니다. 배포 EXE는 [GitHub Releases](https://github.com/SCOTT0318/folder-notifier/releases)에서 제공합니다.
 
 [개발 상세](docs/DEVELOPMENT.md) · [설치기 빌드 상세](installer/README.md)
@@ -116,6 +127,7 @@ dotnet run --project FolderNotifier.UiTests -c Release --no-build -- .
 | 경로 | 내용 |
 | --- | --- |
 | `FolderNotifier/` | WPF 화면, 트레이 알림, 설정, Windows 자동 실행 |
+| `FolderNotifier.AcceptanceTests/` | 설치 DLL 기반 실제 파일 / Windows 팝업 / 트레이 배지 검증 |
 | `FolderNotifier.Core/` | 폴더 파일 목록 비교와 오류 복구 |
 | `FolderNotifier.Tests/` | 파일 감시 검증 |
 | `FolderNotifier.UiTests/` | 화면 및 자동 실행 통합 검증 |

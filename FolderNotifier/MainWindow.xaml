@@ -87,7 +87,8 @@
                         </StackPanel>
                         <CheckBox x:Name="LoginStartupSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="Windows 로그인 시 자동 실행"/>
                     </Grid>
-                    <Button Content="알림 테스트" Click="TestNotificationClicked" Margin="0,20,0,0" HorizontalAlignment="Stretch"/>
+                    <Button x:Name="TestNotificationButton" Content="알림 테스트" Click="TestNotificationClicked" Margin="0,20,0,0" HorizontalAlignment="Stretch"/>
+                    <TextBlock Text="화면 오른쪽 아래에 팝업 표시 · 기본 8초" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,7,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -97,7 +98,11 @@
                 <Grid Margin="24,16">
                     <StackPanel><TextBlock Text="최근 활동" FontSize="18" FontWeight="SemiBold"/>
                         <TextBlock Text="새 파일과 감시 상태 · 최근 500개까지 보관" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
-                    <Button Content="이력 비우기" Click="ClearClicked" Style="{StaticResource QuietButton}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="MarkReadButton" Content="알림 확인" Click="MarkReadClicked" Visibility="Collapsed"
+                            ToolTip="미확인 알림 배지 지우기" Style="{StaticResource QuietButton}" Margin="0,0,6,0"/>
+                        <Button x:Name="ClearHistoryButton" Content="이력 비우기" Click="ClearClicked" Style="{StaticResource QuietButton}"/>
+                    </StackPanel>
                 </Grid>
                 <Border Grid.Row="1" Background="#EEF0F5"/>
                 <ListBox x:Name="ActivityList" Grid.Row="2" BorderThickness="0" Background="Transparent" Padding="12,4"

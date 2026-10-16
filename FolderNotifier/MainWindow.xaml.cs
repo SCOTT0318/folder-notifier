@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shell;
 using FolderNotifier.Core;
 using Forms = System.Windows.Forms;
 
@@ -24,6 +26,7 @@ internal partial class MainWindow : Window
     private readonly Forms.NotifyIcon tray;
     private readonly System.Drawing.Icon appIcon;
     private readonly System.Drawing.Icon trayIcon;
+    private readonly System.Drawing.Icon unreadTrayIcon;
     private readonly Forms.ToolStripMenuItem trayStart = new("감시 시작");
     private readonly Forms.ToolStripMenuItem trayStop = new("감시 중지") { Enabled = false };
     private readonly Forms.ContextMenuStrip trayMenu = new();
@@ -39,6 +42,13 @@ internal partial class MainWindow : Window
     private bool hideHintShown;
     private bool firstLoad = true;
     private bool changingStartup;
+    private string trayStatus = "대기 중";
+
+    internal int UnreadNotificationCount { get; private set; }
+    internal string TrayTooltip => tray.Text;
+    internal bool HasUnreadTrayIcon => ReferenceEquals(tray.Icon, unreadTrayIcon);
+
+    internal NotificationWindow? NotificationPopup { get; private set; }
 
     internal ObservableCollection<ActivityEntry> Activities { get; } = new();
 
@@ -51,7 +61,8 @@ internal partial class MainWindow : Window
         Width = Math.Min(1100, workArea.Width - 32);
         Height = Math.Min(800, workArea.Height - 32);
         appIcon = AppIcon.Load();
-        trayIcon = new System.Drawing.Icon(appIcon, Forms.SystemInformation.SmallIconSize);
+        trayIcon = AppIcon.Load(size: Forms.SystemInformation.SmallIconSize);
+        unreadTrayIcon = AppIcon.Load(unread: true, size: Forms.SystemInformation.SmallIconSize);
         Icon = Imaging.CreateBitmapSourceFromHIcon(appIcon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
         BrandIcon.Source = new BitmapImage(new Uri("pack://application:,,,/FolderNotifier;component/Assets/folder-notifier.png"));
         ActivityList.ItemsSource = Activities;
@@ -62,8 +73,8 @@ internal partial class MainWindow : Window
         trayMenu.Items.Add(new Forms.ToolStripSeparator());
         trayMenu.Items.Add("종료", null, (_, _) => OnUi(ExitApp));
         tray = new Forms.NotifyIcon { Icon = trayIcon, Text = "폴더 알림 · 대기 중", Visible = true, ContextMenuStrip = trayMenu };
+        TaskbarItemInfo = new TaskbarItemInfo { Description = "폴더 알림 · 미확인 알림 없음" };
         tray.DoubleClick += (_, _) => OnUi(ShowWindow);
-        tray.BalloonTipClicked += (_, _) => OnUi(ShowWindow);
         trayStart.Click += (_, _) => OnUi(async () => await StartMonitoringAsync());
         trayStop.Click += (_, _) => OnUi(async () => await StopMonitoringAsync());
         settings = AppSettings.Load(out var loadError, settingsPath);
@@ -89,7 +100,8 @@ internal partial class MainWindow : Window
         };
         SourceInitialized += (_, _) => ApplyWindowCorners();
         Closing += OnClosing;
-        Closed += (_, _) => { tray.Visible = false; tray.Dispose(); trayMenu.Dispose(); trayIcon.Dispose(); appIcon.Dispose(); };
+        Activated += (_, _) => MarkNotificationsRead();
+        Closed += (_, _) => { NotificationPopup?.ClosePermanently(); tray.Visible = false; tray.Dispose(); trayMenu.Dispose(); unreadTrayIcon.Dispose(); trayIcon.Dispose(); appIcon.Dispose(); };
     }
 
     internal bool CanStartInBackground => !string.IsNullOrWhiteSpace(settings.Folder);
@@ -149,11 +161,70 @@ internal partial class MainWindow : Window
     private void OpenFolderClicked(object sender, RoutedEventArgs e) => OpenFolder();
     private void HideClicked(object sender, RoutedEventArgs e) => HideToTray();
     private void ExitClicked(object sender, RoutedEventArgs e) => ExitApp();
-    private void TestNotificationClicked(object sender, RoutedEventArgs e) =>
-        tray.ShowBalloonTip(5000, "폴더 알림 테스트", "새 파일이 추가되면 이런 알림이 표시됩니다.", Forms.ToolTipIcon.Info);
+    private void TestNotificationClicked(object sender, RoutedEventArgs e)
+    {
+        const string message = "새 파일이 추가되면 이런 알림이 표시됩니다.";
+        ShowNotification("폴더 알림 테스트", message);
+        AddHistory("알림 테스트", message);
+    }
+
+    private void ShowNotification(string title, string message, int unreadCount = 1)
+    {
+        if (closing || sessionEnding) return;
+        if (unreadCount > 0)
+        {
+            UnreadNotificationCount = (int)Math.Min(int.MaxValue, (long)UnreadNotificationCount + unreadCount);
+            UpdateNotificationIndicator();
+        }
+        NotificationPopup ??= new NotificationWindow(ShowWindow);
+        NotificationPopup.ShowNotification(title, message);
+    }
     private void ClearClicked(object sender, RoutedEventArgs e)
     {
+        MarkNotificationsRead();
         Activities.Clear(); totalAdded = 0; FileCount.Text = "0"; EmptyState.Visibility = Visibility.Visible;
+    }
+
+    private void MarkReadClicked(object sender, RoutedEventArgs e) => MarkNotificationsRead();
+
+    private void MarkNotificationsRead()
+    {
+        if (UnreadNotificationCount == 0) return;
+        UnreadNotificationCount = 0;
+        UpdateNotificationIndicator();
+    }
+
+    private void SetTrayStatus(string status) { trayStatus = status; UpdateTrayTooltip(); }
+
+    private void UpdateTrayTooltip() => tray.Text = $"폴더 알림 · {trayStatus}"
+        + (UnreadNotificationCount > 0 ? $" · 미확인 {UnreadNotificationCount:N0}개" : "");
+
+    private void UpdateNotificationIndicator()
+    {
+        var unread = UnreadNotificationCount > 0;
+        tray.Icon = unread ? unreadTrayIcon : trayIcon;
+        UpdateTrayTooltip();
+        MarkReadButton.Visibility = unread ? Visibility.Visible : Visibility.Collapsed;
+        MarkReadButton.Content = $"알림 확인 ({UnreadNotificationCount:N0})";
+        TaskbarItemInfo.Description = unread ? $"폴더 알림 · 미확인 {UnreadNotificationCount:N0}개" : "폴더 알림 · 미확인 알림 없음";
+        TaskbarItemInfo.Overlay = unread ? CreateUnreadOverlay(UnreadNotificationCount) : null;
+    }
+
+    private static ImageSource CreateUnreadOverlay(int count)
+    {
+        var drawing = new DrawingGroup();
+        using (var context = drawing.Open())
+        {
+            context.DrawEllipse(Brushes.White, null, new Point(8, 8), 8, 8);
+            context.DrawEllipse(Brushes.Red, null, new Point(8, 8), 7, 7);
+            var text = new FormattedText(count > 99 ? "99+" : count.ToString(CultureInfo.InvariantCulture),
+                CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI Semibold"),
+                count > 99 ? 6 : 9, Brushes.White, 1);
+            context.DrawText(text, new Point((16 - text.Width) / 2, (16 - text.Height) / 2));
+        }
+        var image = new DrawingImage(drawing);
+        image.Freeze();
+        return image;
     }
 
     internal async Task StartMonitoringAsync()
@@ -192,11 +263,11 @@ internal partial class MainWindow : Window
                 if (result.Error is not null)
                 {
                     SetStatus("연결 확인", "폴더 연결 또는 접근 권한을 확인해 주세요. 자동으로 재시도합니다.", "#FFF4E8", "#B56712");
-                    tray.Text = "폴더 알림 · 연결 / 접근 오류";
+                    SetTrayStatus("연결 / 접근 오류");
                     if (result.Error != lastError)
                     {
                         AddHistory("감시 오류", result.Error);
-                        tray.ShowBalloonTip(5000, "폴더를 확인할 수 없습니다", "경로, 연결 상태와 폴더 접근 권한을 확인해 주세요. 자동으로 재시도합니다.", Forms.ToolTipIcon.Warning);
+                        ShowNotification("폴더를 확인할 수 없습니다", "경로, 연결 상태와 폴더 접근 권한을 확인해 주세요. 자동으로 재시도합니다.");
                     }
                     lastError = result.Error;
                 }
@@ -206,7 +277,7 @@ internal partial class MainWindow : Window
                     lastError = null;
                     if (!baselineReady) { baselineReady = true; AddHistory("감시 시작", activeFolder); }
                     SetStatus("감시 중", $"2초마다 확인 · 마지막 확인 {DateTime.Now:HH:mm:ss}", "#E9F6EE", "#20844D");
-                    tray.Text = "폴더 알림 · 감시 중";
+                    SetTrayStatus("감시 중");
                     if (result.AddedFiles.Count > 0) NotifyAdded(result.AddedFiles);
                 }
                 await Task.Delay(TimeSpan.FromSeconds(2), token);
@@ -217,8 +288,8 @@ internal partial class MainWindow : Window
         {
             AddHistory("감시 중단", ex.Message);
             SetStatus("중단됨", "감시가 중단되었습니다. 이력을 확인하고 다시 시작해 주세요.", "#FDECEE", "#B42337");
-            tray.Text = "폴더 알림 · 감시 중단";
-            tray.ShowBalloonTip(5000, "폴더 감시 중단", ex.Message, Forms.ToolTipIcon.Error);
+            SetTrayStatus("감시 중단");
+            ShowNotification("폴더 감시 중단", ex.Message);
         }
         finally
         {
@@ -235,7 +306,7 @@ internal partial class MainWindow : Window
         cancellation.Cancel();
         if (monitoringTask is not null) await monitoringTask;
         SetStatus("중지됨", "다시 시작하면 현재 파일을 기준으로 감시합니다.", "#F0F2F6", "#667085");
-        tray.Text = "폴더 알림 · 중지됨";
+        SetTrayStatus("중지됨");
         AddHistory("감시 중지", activeFolder);
     }
 
@@ -255,7 +326,7 @@ internal partial class MainWindow : Window
         var message = string.Join("\n", files.Take(3).Select(Path.GetFileName));
         if (files.Count > 3) message += $"\n외 {files.Count - 3:N0}개 · 앱에서 확인";
         if (message.Length > 240) message = message[..237] + "…";
-        tray.ShowBalloonTip(5000, title, message, Forms.ToolTipIcon.Info);
+        ShowNotification(title, message, files.Count);
     }
 
     private void AddHistory(string title, string detail, bool isFile = false)
@@ -288,16 +359,16 @@ internal partial class MainWindow : Window
             MessageBox.Show(this, ex.Message, "폴더 열기 실패", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
-    internal void ShowWindow() { Show(); WindowState = WindowState.Normal; Activate(); }
+    internal void ShowWindow() { Show(); WindowState = WindowState.Normal; Activate(); MarkNotificationsRead(); }
     private void HideToTray()
     {
         Hide();
         if (hideHintShown) return;
         hideHintShown = true;
-        tray.ShowBalloonTip(3000, "폴더 알림이 실행 중입니다", "트레이 아이콘을 두 번 클릭하면 창이 열립니다. 종료는 트레이 메뉴에서 선택하세요.", Forms.ToolTipIcon.Info);
+        ShowNotification("폴더 알림이 실행 중입니다", "트레이 아이콘을 두 번 클릭하면 창이 열립니다. 종료는 트레이 메뉴에서 선택하세요.", unreadCount: 0);
     }
     internal void ExitApp() { exiting = true; Close(); }
-    internal void PrepareForSessionEnd() { sessionEnding = exiting = true; cancellation?.Cancel(); tray.Visible = false; }
+    internal void PrepareForSessionEnd() { sessionEnding = exiting = true; cancellation?.Cancel(); NotificationPopup?.Dismiss(); tray.Visible = false; }
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
         if (sessionEnding) return;
