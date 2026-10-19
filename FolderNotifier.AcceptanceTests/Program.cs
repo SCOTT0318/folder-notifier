@@ -49,7 +49,18 @@ internal static class Program
         app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var startup = Activator.CreateInstance(assembly.GetType("FolderNotifier.StartupRegistration", true)!,
             new object?[] { Path.ChangeExtension(assemblyPath, ".exe"), @"Software\FolderNotifier.AcceptanceTests\" + Guid.NewGuid().ToString("N") });
-        var window = (Window)Activator.CreateInstance(assembly.GetType("FolderNotifier.MainWindow", true)!, new[] { config, startup })!;
+        var windowType = assembly.GetType("FolderNotifier.MainWindow", true)!;
+        var constructor = Array.Find(windowType.GetConstructors(), candidate =>
+            candidate.GetParameters().Length >= 2 && candidate.GetParameters()[0].ParameterType == typeof(string))
+            ?? throw new MissingMethodException("MainWindow constructor was not found");
+        var parameters = constructor.GetParameters();
+        var arguments = new object?[parameters.Length];
+        arguments[0] = config;
+        arguments[1] = startup;
+        for (var index = 2; index < parameters.Length; index++)
+            arguments[index] = parameters[index].HasDefaultValue ? parameters[index].DefaultValue
+                : throw new MissingMethodException("Unsupported required MainWindow parameter");
+        var window = (Window)constructor.Invoke(arguments);
         window.Title = "폴더 알림 · 실시간 트레이 검증";
         Exception? failure = null;
         window.Loaded += async (_, _) =>

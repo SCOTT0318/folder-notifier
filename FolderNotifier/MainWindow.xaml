@@ -1,6 +1,7 @@
 <Window x:Class="FolderNotifier.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:FolderNotifier"
     x:ClassModifier="internal" Title="폴더 알림" Width="1100" Height="800" MinWidth="900" MinHeight="600"
     WindowStartupLocation="CenterScreen" Background="#F3F5F9" Foreground="{StaticResource Ink}" FontFamily="Segoe UI Variable, Malgun Gothic"
     FontSize="14" UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
@@ -31,9 +32,10 @@
                         <StackPanel><StackPanel Orientation="Horizontal"><Ellipse Width="6" Height="6" Fill="#6AA5FF" Margin="0,0,7,0"/><TextBlock Text="{Binding Text, ElementName=StatusText}" FontSize="12" Foreground="#DFE8F5"/></StackPanel>
                             <TextBlock Text="창을 닫아도 트레이에서&#x0a;감시는 계속됩니다." Foreground="#A7B9D0" FontSize="10" LineHeight="17" Margin="0,7,0,0"/></StackPanel>
                     </Border>
-                    <Button x:Name="HideButton" Content="트레이로 숨기기" Click="HideClicked" Style="{StaticResource NavButton}" FontSize="12"/>
-                    <Button x:Name="ExitButton" Content="앱 종료" Click="ExitClicked" Style="{StaticResource NavButton}" FontSize="12" Margin="0,4,0,0"/>
-                    <TextBlock x:Name="AppVersionText" Text="v1.8.1" Foreground="#8097B8" FontSize="10" Margin="12,18,0,0"/>
+                    <Button x:Name="HideButton" Content="트레이로 숨기기" local:ButtonIcon.Glyph="&#xE73F;" Click="HideClicked" Style="{StaticResource NavButton}" FontSize="11"/>
+                    <Button x:Name="ExitButton" Content="앱 종료" local:ButtonIcon.Glyph="&#xE7E8;" Click="ExitClicked" Style="{StaticResource NavButton}" FontSize="12" Margin="0,4,0,0"/>
+                    <TextBlock x:Name="AppVersionText" Foreground="#A7B9D0" FontSize="10" Margin="12,14,0,0"/>
+                    <Button Content="업데이트 확인" local:ButtonIcon.Glyph="&#xE895;" Click="OpenUpdatesClicked" Style="{StaticResource NavButton}" FontSize="11" Padding="12,8" Margin="0,4,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -70,12 +72,12 @@
                                     </TextBlock>
                                 </Grid>
                             </Border>
-                            <Button x:Name="BrowseButton" Grid.Column="2" Content="선택" Click="ChooseFolder" Padding="14,8"/>
+                            <Button x:Name="BrowseButton" Grid.Column="2" Content="선택" local:ButtonIcon.Glyph="&#xE8B7;" Style="{StaticResource SoftButton}" Click="ChooseFolder" Padding="14,8"/>
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                            <Button x:Name="StartButton" Content="감시 시작" Style="{StaticResource PrimaryButton}" Click="StartClicked" Padding="18,8" MinWidth="104"/>
-                            <Button x:Name="StopButton" Content="중지" Click="StopClicked" IsEnabled="False" Margin="8,0,0,0" Padding="14,8"/>
-                            <Button Content="폴더 열기 ↗" Click="OpenFolderClicked" Style="{StaticResource QuietButton}" Padding="10,8" Margin="4,0,0,0"/>
+                            <Button x:Name="StartButton" Content="감시 시작" local:ButtonIcon.Glyph="&#xE768;" Style="{StaticResource PrimaryButton}" Click="StartClicked" Padding="18,8" MinWidth="104"/>
+                            <Button x:Name="StopButton" Content="중지" local:ButtonIcon.Glyph="&#xE71A;" Style="{StaticResource StopButton}" Click="StopClicked" IsEnabled="False" Margin="8,0,0,0" Padding="14,8"/>
+                            <Button Content="폴더 열기" local:ButtonIcon.Glyph="&#xE8A7;" Click="OpenFolderClicked" Style="{StaticResource QuietButton}" Padding="10,8" Margin="4,0,0,0"/>
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
@@ -90,8 +92,14 @@
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <StackPanel Margin="20,18,20,14">
-                            <Grid><TextBlock Text="파일 기록" FontSize="18" FontWeight="SemiBold"/><Button x:Name="ClearHistoryButton" Content="비우기" Click="ClearClicked" Style="{StaticResource QuietButton}" HorizontalAlignment="Right" Padding="8,4" MinHeight="26" FontSize="11"/></Grid>
-                            <Grid Margin="0,5,0,0"><TextBlock Text="최근 활동 · 최대 500개" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><Button x:Name="MarkReadButton" Content="알림 확인" Click="MarkReadClicked" Visibility="Collapsed" ToolTip="미확인 알림 배지 지우기" Style="{StaticResource QuietButton}" HorizontalAlignment="Right" Padding="8,3" FontSize="11" MinHeight="24"/></Grid>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="파일 기록" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                                    <Button x:Name="MarkReadButton" Content="알림 확인" local:ButtonIcon.Glyph="&#xE73E;" Click="MarkReadClicked" IsEnabled="False" ToolTip="미확인 알림 배지 지우기" Style="{StaticResource SoftButton}" Padding="10,7" FontSize="11" MinHeight="32" Margin="0,0,8,0"/>
+                                    <Button x:Name="ClearHistoryButton" Content="비우기" local:ButtonIcon.Glyph="&#xE74D;" Click="ClearClicked" Style="{StaticResource QuietButton}" Padding="10,7" MinHeight="32" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="최근 활동 · 최대 500개" Margin="0,8,0,0" FontSize="11" Foreground="{StaticResource Muted}"/>
                         </StackPanel>
                         <Border Grid.Row="1" Background="{StaticResource Line}"/>
                         <ListBox x:Name="ActivityList" Grid.Row="2" BorderThickness="0" Background="Transparent" Padding="8,6" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" HorizontalContentAlignment="Stretch" AutomationProperties.Name="최근 파일 및 감시 활동">
@@ -119,7 +127,7 @@
                             <Image x:Name="InboxGraphic" Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" AutomationProperties.Name="알림 상태 종 그래픽"/>
                             <StackPanel Grid.Column="1"><Grid><TextBlock Text="미확인 알림" FontSize="11" Foreground="{StaticResource Muted}"/><Border x:Name="UnreadCountBadge" Visibility="Collapsed" Background="#E84E5D" CornerRadius="10" Padding="6,1" HorizontalAlignment="Right"><TextBlock x:Name="UnreadCountText" Foreground="White" FontSize="10" FontWeight="Bold"/></Border></Grid>
                                 <TextBlock x:Name="InboxStatus" Text="새 알림을 기다려요" FontSize="14" FontWeight="SemiBold" Margin="0,6,0,0" TextWrapping="Wrap"/><TextBlock x:Name="InboxSummary" Text="파일 도착 시 알려드릴게요" FontSize="10" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,5,0,12"/>
-                                <StackPanel Orientation="Horizontal"><Button x:Name="NotificationInboxButton" Content="최근 알림" Click="ShowLatestNotification" IsEnabled="False" FontSize="10" Padding="9,5" MinHeight="28"/><Button x:Name="TestNotificationButton" Content="미리보기" Click="TestNotificationClicked" Style="{StaticResource QuietButton}" FontSize="10" Padding="8,5" MinHeight="28" Margin="2,0,0,0"/></StackPanel>
+                                <StackPanel Orientation="Horizontal"><Button x:Name="NotificationInboxButton" Content="최근 알림" Click="ShowLatestNotification" Style="{StaticResource SoftButton}" IsEnabled="False" FontSize="10" Padding="9,5" MinHeight="30"/><Button x:Name="TestNotificationButton" Content="미리보기" Click="TestNotificationClicked" Style="{StaticResource QuietButton}" FontSize="10" Padding="8,5" MinHeight="30" Margin="2,0,0,0"/></StackPanel>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -141,6 +149,28 @@
                             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="앱 실행 시 감시" FontSize="{DynamicResource SettingsLabelSize}"/><TextBlock Text="저장한 폴더에서 시작" FontSize="{DynamicResource SettingsDescriptionSize}" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/></StackPanel><CheckBox x:Name="AutoStartSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="다음 앱 실행 시 감시 시작"/></Grid>
                             <Border Height="1" Background="{StaticResource Line}" Margin="0,16"/>
                             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Margin="0,0,6,0"><TextBlock Text="로그인 시 실행" FontSize="{DynamicResource SettingsLabelSize}"/><TextBlock x:Name="StartupHint" Text="트레이에서 자동 감시" FontSize="{DynamicResource SettingsDescriptionSize}" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/></StackPanel><CheckBox x:Name="LoginStartupSwitch" Grid.Column="1" Style="{StaticResource Switch}" ToolTip="Windows 로그인 시 자동 실행"/></Grid>
+                            <StackPanel x:Name="UpdatePanel" Visibility="Collapsed">
+                                <Border Height="1" Background="{StaticResource Line}" Margin="0,24"/>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel><TextBlock Text="버전 및 업데이트" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="공식 배포 버전을 확인하고 설치하세요." FontSize="12" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/></StackPanel>
+                                    <Border Grid.Column="1" Background="#EDF3FF" CornerRadius="8" Padding="12,8" VerticalAlignment="Center"><TextBlock x:Name="CurrentVersionText" Foreground="#345FC5" FontSize="12" FontWeight="SemiBold"/></Border>
+                                </Grid>
+                                <Border Background="#F7F9FD" BorderBrush="#E2E9F5" BorderThickness="1" CornerRadius="12" Padding="18" Margin="0,16,0,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="UpdateStatusText" Text="새 버전을 확인해 보세요" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+                                        <TextBlock x:Name="UpdateDetailText" Text="업데이트 확인을 누르면 최신 정식 버전을 조회합니다." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,7,0,0" TextWrapping="Wrap"/>
+                                        <ScrollViewer x:Name="ReleaseNotesScroller" Visibility="Collapsed" MaxHeight="150" VerticalScrollBarVisibility="Auto" Margin="0,14,0,0"><TextBlock x:Name="ReleaseNotesText" TextWrapping="Wrap" FontSize="12" LineHeight="20"/></ScrollViewer>
+                                        <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed" Height="5" Maximum="100" Foreground="{StaticResource Accent}" Background="#E2E9F5" Margin="0,16,0,0" AutomationProperties.Name="업데이트 다운로드 진행률"/>
+                                        <WrapPanel Margin="0,14,0,0">
+                                            <Button x:Name="CheckUpdateButton" Content="업데이트 확인" local:ButtonIcon.Glyph="&#xE895;" Style="{StaticResource SoftButton}" Click="CheckUpdateClicked" Margin="0,0,8,8"/>
+                                            <Button x:Name="InstallUpdateButton" Content="다운로드 및 설치" local:ButtonIcon.Glyph="&#xE896;" Style="{StaticResource PrimaryButton}" Click="InstallUpdateClicked" Visibility="Collapsed" Margin="0,0,8,8"/>
+                                            <Button x:Name="CancelUpdateButton" Content="취소" Style="{StaticResource QuietButton}" Click="CancelUpdateClicked" Visibility="Collapsed" Margin="0,0,8,8"/>
+                                            <Button x:Name="ReleasePageButton" Content="변경 내용 보기" local:ButtonIcon.Glyph="&#xE8A7;" Style="{StaticResource QuietButton}" Click="ReleasePageClicked" Visibility="Collapsed" Margin="0,0,0,8"/>
+                                        </WrapPanel>
+                                        <TextBlock Text="설치 시 앱이 종료됩니다. 감시 폴더와 설정은 유지되며, 설치 후 앱을 다시 실행하세요." Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" LineHeight="18"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Grid>

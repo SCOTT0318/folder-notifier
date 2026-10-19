@@ -18,6 +18,12 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--check-live-update"))
+        {
+            var release = new AppUpdater().CheckAsync(CancellationToken.None).GetAwaiter().GetResult();
+            Console.WriteLine($"Official release v{release.DisplayVersion}; installer {release.Size} bytes; SHA-256 available");
+            return;
+        }
         ShellIdentity.Configure();
         Marshal.ThrowExceptionForHR(GetCurrentProcessExplicitAppUserModelID(out var appId));
         try { Check(Marshal.PtrToStringUni(appId) == ShellIdentity.AppUserModelId, "Windows receives the explicit taskbar app identity"); }
@@ -37,6 +43,12 @@ internal static class Program
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--updates-only"))
+                {
+                    await UpdateTests.Run(parent, root);
+                    Console.WriteLine("All update checks passed.");
+                    return;
+                }
                 Check(window.Height <= SystemParameters.WorkArea.Height && window.Width <= SystemParameters.WorkArea.Width,
                     "Initial window fits the available desktop");
                 SavePreview(window, Path.Combine(parent, "ui-preview-idle.png"));
@@ -99,7 +111,7 @@ internal static class Program
                 await TestFilenameLayout(parent);
                 window.MarkReadButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Check(window.UnreadNotificationCount == 0 && !window.HasUnreadTrayIcon && window.TaskbarItemInfo.Overlay is null
-                    && window.MarkReadButton.Visibility == Visibility.Collapsed && window.FileCount.Text == "0",
+                    && window.MarkReadButton.Visibility == Visibility.Visible && !window.MarkReadButton.IsEnabled && window.FileCount.Text == "0",
                     "Mark-read clears both badges without changing detected-file totals");
                 Check(ReferenceEquals(window.InboxGraphic.Source, NotificationArtwork.Bell)
                     && window.UnreadCountBadge.Visibility == Visibility.Collapsed && window.NotificationInboxButton.IsEnabled,
@@ -121,6 +133,7 @@ internal static class Program
                 Check(window.LoginStartupSwitch.IsChecked == false && !startup.IsEnabled
                     && window.Activities.Any(row => row.Title == "자동 실행 설정 실패"), "Failed registration rolls back the switch and explains the error");
                 startup.FailWrites = false;
+                await UpdateTests.Run(parent, root);
                 TestIsolatedRegistry();
                 window.StartButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await WaitUntil(() => window.StatusText.Text == "감시 중");

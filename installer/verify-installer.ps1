@@ -1,6 +1,9 @@
-param([string]$InstallerPath, [string]$PublishDirectory)
+param([string]$InstallerPath, [string]$PublishDirectory, [switch]$RequireSigned, [string]$ExpectedPublisher)
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'ReleaseSigning.ps1')
+if ($RequireSigned -and -not $ExpectedPublisher) { throw 'RequireSigned needs the exact certificate Subject in ExpectedPublisher.' }
+if ($ExpectedPublisher -and -not $RequireSigned) { throw 'ExpectedPublisher requires RequireSigned.' }
 $workspacePath = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 if (-not $InstallerPath) { $InstallerPath = Join-Path $workspacePath 'dist\FolderNotifier-Setup.exe' }
 $InstallerPath = [IO.Path]::GetFullPath($InstallerPath)
@@ -33,6 +36,7 @@ function Invoke-SmokeInstall([string]$LogName) {
 Assert-WorkspacePath $smokeRoot
 Assert-WorkspacePath $installPath
 if (-not (Test-Path -LiteralPath $InstallerPath)) { throw "Installer not found: $InstallerPath" }
+if ($RequireSigned) { Assert-ReleaseSignature -Path $InstallerPath -ExpectedPublisher $ExpectedPublisher }
 New-Item -ItemType Directory -Path $smokeRoot | Out-Null
 $settingsPath = Join-Path $env:LOCALAPPDATA 'FolderNotifier\settings.json'
 $settingsBefore = Get-OptionalHash $settingsPath
@@ -54,6 +58,11 @@ if ((Get-OptionalHash (Join-Path $publishPath 'FolderNotifier.dll')) -ne (Get-Op
 }
 $uninstallerPath = Join-Path $installPath 'unins000.exe'
 if (-not (Test-Path -LiteralPath $uninstallerPath)) { throw 'Uninstaller was not created.' }
+if ($RequireSigned) {
+    foreach ($fileName in @('FolderNotifier.exe', 'FolderNotifier.dll', 'FolderNotifier.Core.dll', 'unins000.exe')) {
+        Assert-ReleaseSignature -Path (Join-Path $installPath $fileName) -ExpectedPublisher $ExpectedPublisher
+    }
+}
 $uninstallLog = Join-Path $smokeRoot 'uninstall.log'
 $uninstallProcess = Start-Process -FilePath $uninstallerPath -ArgumentList ('/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SMOKETEST=1 /LOG="' + $uninstallLog + '"') -WindowStyle Hidden -Wait -PassThru
 if ($uninstallProcess.ExitCode -ne 0) { throw "Uninstall failed: $($uninstallProcess.ExitCode)" }
@@ -68,6 +77,8 @@ if ((Get-OptionalHash $settingsPath) -ne $settingsBefore) { throw 'User settings
 
 $result = [ordered]@{
     success = $true
+    signaturesRequired = [bool]$RequireSigned
+    expectedPublisher = $ExpectedPublisher
     installer = $InstallerPath
     installerSha256 = (Get-FileHash -LiteralPath $InstallerPath -Algorithm SHA256).Hash.ToLowerInvariant()
     publishDirectory = $publishPath

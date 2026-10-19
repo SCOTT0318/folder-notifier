@@ -6,3 +6,8 @@ dist/
 FolderNotifier-tests-*/
 ui-preview.png
 ui-preview-*.png
+# Signing credentials and local provider adapters must never be published.
+*.pfx
+*.p12
+*.key
+signing.local.ps1

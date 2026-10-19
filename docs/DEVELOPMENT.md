@@ -13,7 +13,7 @@ Windows 11에서 지정한 폴더에 새 파일이 추가되면 화면 오른쪽
 
 설치 파일 하나에 앱과 런타임이 포함되어 있어 ZIP 압축 해제나 별도 런타임 설치가 필요 없습니다. 현재 사용자에게 설치되며, Windows **설정 → 앱 → 설치된 앱 → 폴더 알림**에서 제거합니다. 설정 파일은 업데이트 / 제거 시 유지합니다. 앱이 실행 중인 상태에서 업데이트하려면 트레이 메뉴의 **종료**로 먼저 종료하세요.
 
-설치하지 않고 사용할 때는 `dist/FolderNotifier-1.8.1/FolderNotifier.exe`를 실행합니다.
+설치하지 않고 사용할 때는 `dist/FolderNotifier-1.9.0/FolderNotifier.exe`를 실행합니다.
 
 **닫기(X)** 또는 **트레이로 숨기기**를 누르면 트레이에서 계속 실행됩니다. 트레이 아이콘을 두 번 클릭하면 창이 열립니다. 완전히 끝내려면 **종료** 또는 트레이 메뉴의 **종료**를 사용하세요.
 
@@ -88,7 +88,7 @@ dotnet run --project FolderNotifier.AcceptanceTests -c Release -- $installedDll 
 .\build.ps1 -SelfContained
 ```
 
-배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.8.1`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
+배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.9.0`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
 
 일반 빌드를 사용한다면 `dist/FolderNotifier/FolderNotifier.exe`를 실행합니다.
 
@@ -119,3 +119,15 @@ dotnet run --project tools/IconBuilder -c Release --no-build -- FolderNotifier/A
 화면 테마 참고: [Microsoft WPF Fluent 테마](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/whats-new/net90), [Windows 11 geometry](https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/geometry)
 
 환경 설정의 알림 표시 시간은 1~5초(기본 5초)이며 변경 즉시 저장합니다. 기존 설정에 값이 없으면 5초로 시작하고 범위를 벗어난 값은 1~5초로 제한합니다. 감시 중에도 변경 가능하며 이미 표시된 팝업의 남은 시간을 새 값으로 다시 시작합니다. 호버 중에는 타이머를 멈추고 등장·퇴장 애니메이션은 유지합니다. 저장 실패 시 이전 선택으로 복구하고 파일 기록에 오류를 표시합니다.
+
+## 앱 내부 업데이트
+
+현재 버전은 앱 어셈블리에서 읽고, 설치기 기본 버전도 프로젝트의 `Version`에서 읽습니다. 사용자가 업데이트 확인을 누르면 [GitHub 정식 릴리스 API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)를 조회합니다. 초안·시험판·잘못된 버전·설치 파일이나 검증 정보가 없는 릴리스는 설치하지 않습니다. 현재 버전과 같거나 낮으면 다운로드 버튼을 표시하지 않습니다.
+
+`AppUpdater`는 공식 저장소의 `FolderNotifier-Setup.exe`를 고유 임시 폴더에 내려받아 크기와 SHA-256을 검사합니다. API의 `digest`가 없으면 같은 릴리스의 `FolderNotifier-Setup.sha256`을 사용합니다. 확인 요청은 20초, 다운로드는 5분 제한이며 취소·실패 시 해당 요청의 임시 파일만 정리합니다. 정상 파일만 설치기에 전달하고 `/FROMAPP=1`과 현재 설치 경로를 넘깁니다. 앱은 감시를 정상 종료하고 설정을 저장하며 설치기는 최대 30초 동안 앱 mutex 해제를 기다립니다. 설치 중에는 감시하지 않으며 설치 완료 화면에서 사용자가 앱을 실행합니다.
+
+화면 검증에는 가짜 HTTP 응답과 실행하지 않는 예시 설치 파일을 사용합니다. 버전 비교, 다운로드 검증·취소·실패, 감시 유지, 중복 요청 방지, 최소 창에서 설치 버튼 접근을 검사하며 실제 사용자 설치를 갱신하지 않습니다. 업데이트 화면 예시의 v2.0.0은 테스트 데이터입니다. 실제 공개 릴리스 연결만 별도로 확인하려면 다음 명령을 실행합니다.
+
+```powershell
+dotnet run --project FolderNotifier.UiTests -c Release --no-build -- --check-live-update
+```

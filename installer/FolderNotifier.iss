@@ -1,6 +1,6 @@
 ; Build with build-installer.ps1. The payload includes the Windows Desktop runtime.
 #ifndef AppVersion
-  #define AppVersion "1.8.1"
+  #define AppVersion "1.9.0"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\dist\FolderNotifier-" + AppVersion
@@ -35,6 +35,11 @@ WizardSmallImageFile=..\FolderNotifier\Assets\folder-notifier.png
 UninstallDisplayIcon={app}\folder-notifier-v2.ico
 UninstallDisplayName=폴더 알림
 Uninstallable=yes
+#ifdef ReleaseSigning
+SignTool=FolderNotifierRelease
+SignedUninstaller=yes
+SignToolRunMinimized=yes
+#endif
 CreateUninstallRegKey=not IsSmokeTest
 Compression=lzma2/max
 SolidCompression=yes
@@ -89,10 +94,20 @@ begin
 end;
 
 function EnsureAppClosed: Boolean;
+var
+  Attempts: Integer;
 begin
   Result := True;
   if IsSmokeTest then
     Exit;
+  { Let an in-app update finish saving settings and release its instance mutex. }
+  if ExpandConstant('{param:FROMAPP|0}') = '1' then
+    for Attempts := 1 to 150 do
+    begin
+      if not CheckForMutexes('Local\FolderNotifier.Desktop') then
+        Break;
+      Sleep(200);
+    end;
   while CheckForMutexes('Local\FolderNotifier.Desktop') do
     if SuppressibleMsgBox(ExpandConstant('{cm:CloseRunningApp}'), mbError,
       MB_OKCANCEL, IDCANCEL) = IDCANCEL then

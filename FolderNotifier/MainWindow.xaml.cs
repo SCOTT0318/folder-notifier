@@ -61,9 +61,13 @@ internal partial class MainWindow : Window
 
     internal ObservableCollection<ActivityEntry> Activities { get; } = new();
 
-    public MainWindow(string? settingsPath = null, IStartupRegistration? startupRegistration = null)
+    public MainWindow(string? settingsPath = null, IStartupRegistration? startupRegistration = null,
+        AppUpdater? updater = null, Action<string>? installUpdate = null, string? updateDownloadRoot = null)
     {
         InitializeComponent();
+        this.updater = updater ?? new AppUpdater();
+        this.installUpdate = installUpdate ?? (path => { AppUpdater.LaunchInstaller(path); ExitApp(); });
+        this.updateDownloadRoot = updateDownloadRoot;
         NavigateTo(WorkspacePage.Monitor);
         var workArea = SystemParameters.WorkArea;
         MinWidth = Math.Min(900, Math.Max(600, workArea.Width - 32));
@@ -78,8 +82,8 @@ internal partial class MainWindow : Window
         InboxGraphic.Source = NotificationArtwork.Bell;
         FolderGraphic.Source = NotificationArtwork.Folder;
         FolderInput.TextChanged += (_, _) => UpdateFolderHeading();
-        var version = typeof(MainWindow).Assembly.GetName().Version!;
-        AppVersionText.Text = $"v{version.Major}.{version.Minor}.{version.Build}";
+        AppVersionText.Text = $"v{AppUpdater.FormatVersion(AppUpdater.CurrentVersion)}";
+        CurrentVersionText.Text = $"현재 {AppVersionText.Text}";
         ActivityList.ItemsSource = Activities;
         trayMenu.Items.Add("창 열기", null, (_, _) => OnUi(ShowWindow));
         trayMenu.Items.Add(trayStart);
@@ -251,8 +255,9 @@ internal partial class MainWindow : Window
         var unread = UnreadNotificationCount > 0;
         tray.Icon = unread ? unreadTrayIcon : trayIcon;
         UpdateTrayTooltip();
-        MarkReadButton.Visibility = unread ? Visibility.Visible : Visibility.Collapsed;
-        MarkReadButton.Content = $"알림 확인 ({UnreadNotificationCount:N0})";
+        MarkReadButton.IsEnabled = unread;
+        MarkReadButton.Content = unread ? $"알림 확인 ({(UnreadNotificationCount > 99 ? "99+" : UnreadNotificationCount.ToString("N0"))})" : "알림 확인";
+        MarkReadButton.ToolTip = unread ? $"미확인 알림 {UnreadNotificationCount:N0}개 확인" : "미확인 알림이 없습니다";
         TaskbarItemInfo.Description = unread ? $"폴더 알림 · 미확인 {UnreadNotificationCount:N0}개" : "폴더 알림 · 미확인 알림 없음";
         TaskbarItemInfo.Overlay = unread ? CreateUnreadOverlay(UnreadNotificationCount) : null;
         UpdateInboxCard();
@@ -316,10 +321,13 @@ internal partial class MainWindow : Window
         Grid.SetColumnSpan(RightPanel, monitoring ? 1 : 3);
         RightPanel.RowDefinitions[1].Height = new GridLength(monitoring ? 14 : 0);
         MainSurface.MinHeight = monitoring ? 760 : 520;
+        if (settingsPage) MainSurface.ClearValue(HeightProperty);
+        else MainSurface.SetBinding(HeightProperty, new System.Windows.Data.Binding("ActualHeight") { Source = RootScroller });
         SettingsCard.Padding = new Thickness(settingsPage ? 28 : 18);
         SettingsHeading.FontSize = settingsPage ? 20 : 16;
         SettingsPageHint.Visibility = settingsPage ? Visibility.Visible : Visibility.Collapsed;
         NotificationDurationRow.Visibility = settingsPage ? Visibility.Visible : Visibility.Collapsed;
+        UpdatePanel.Visibility = settingsPage ? Visibility.Visible : Visibility.Collapsed;
         Resources["SettingsLabelSize"] = settingsPage ? 14d : 12d;
         Resources["SettingsDescriptionSize"] = settingsPage ? 12d : 10d;
         RootScroller.ScrollToTop();
@@ -498,13 +506,14 @@ internal partial class MainWindow : Window
         ShowNotification("폴더 알림이 실행 중입니다", "트레이 아이콘을 두 번 클릭하면 창이 열립니다. 종료는 트레이 메뉴에서 선택하세요.", unreadCount: 0);
     }
     internal void ExitApp() { exiting = true; Close(); }
-    internal void PrepareForSessionEnd() { sessionEnding = exiting = true; cancellation?.Cancel(); NotificationPopup?.DismissImmediately(); tray.Visible = false; }
+    internal void PrepareForSessionEnd() { sessionEnding = exiting = true; cancellation?.Cancel(); updateCancellation?.Cancel(); NotificationPopup?.DismissImmediately(); tray.Visible = false; }
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
         if (sessionEnding) return;
         if (closing) { e.Cancel = true; return; }
         if (!exiting) { e.Cancel = true; HideToTray(); return; }
         e.Cancel = true; closing = true; IsEnabled = false;
+        updateCancellation?.Cancel();
         await StopMonitoringAsync();
         settings.Folder = FolderInput.Text.Trim();
         settings.IncludeSubfolders = RecursiveSwitch.IsChecked == true;
