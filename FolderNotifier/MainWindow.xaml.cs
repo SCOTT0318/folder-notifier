@@ -497,7 +497,13 @@ internal partial class MainWindow : Window
             MessageBox.Show(this, ex.Message, "폴더 열기 실패", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
-    internal void ShowWindow() { Show(); WindowState = WindowState.Normal; Activate(); MarkNotificationsRead(); }
+    internal void ShowWindow()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+        MarkNotificationsRead();
+    }
     private void HideToTray()
     {
         Hide();

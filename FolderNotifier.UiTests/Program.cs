@@ -18,6 +18,11 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--activate-instance")
+        {
+            Environment.ExitCode = InstanceActivation.RequestAsync(args[1]).GetAwaiter().GetResult() ? 0 : 1;
+            return;
+        }
         if (args.Contains("--check-live-update"))
         {
             var release = new AppUpdater().CheckAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -43,6 +48,8 @@ internal static class Program
             try
             {
                 await Task.Delay(200);
+                await TestInstanceActivation(window);
+                if (args.Contains("--activation-only")) return;
                 if (args.Contains("--updates-only"))
                 {
                     await UpdateTests.Run(parent, root);
@@ -609,6 +616,54 @@ internal static class Program
         using var file = File.Create(path);
         encoder.Save(file);
     }
+
+    private static async Task TestInstanceActivation(MainWindow window)
+    {
+        var pipeName = "FolderNotifier-test-" + Guid.NewGuid().ToString("N");
+        var received = 0;
+        using (var activation = new InstanceActivation(() => window.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            received++;
+            window.ShowWindow();
+        })), pipeName))
+        {
+            window.Hide();
+            await OpenAgain();
+            await WaitUntil(() => received == 1 && window.IsVisible && window.IsActive);
+            Check(window.IsVisible && window.IsActive, "A second process restores and activates the existing tray-hidden window");
+            window.WindowState = WindowState.Minimized;
+            await OpenAgain();
+            await WaitUntil(() => received == 2 && window.WindowState == WindowState.Normal && window.IsActive);
+            Check(window.IsVisible && window.IsActive && window.WindowState == WindowState.Normal,
+                "A second process restores and activates the minimized window");
+            window.WindowState = WindowState.Maximized;
+            await OpenAgain();
+            await WaitUntil(() => received == 3);
+            Check(window.WindowState == WindowState.Maximized, "Reopening preserves a maximized window");
+            window.WindowState = WindowState.Normal;
+            await OpenAgain();
+            await WaitUntil(() => received == 4);
+            Check(window.IsVisible && window.WindowState == WindowState.Normal,
+                "Repeated opens reuse the same visible window");
+        }
+        Check(!await InstanceActivation.RequestAsync(pipeName), "Missing or stopped instance returns within the connection timeout");
+
+        async Task OpenAgain()
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            start.ArgumentList.Add("--activate-instance");
+            start.ArgumentList.Add(pipeName);
+            using var child = System.Diagnostics.Process.Start(start)!;
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await child.WaitForExitAsync(timeout.Token);
+            Check(child.ExitCode == 0, "Second process delivers an activation request without a dialog");
+        }
+    }
+
     private static async Task WaitUntil(Func<bool> condition)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));

@@ -1,5 +1,3 @@
-using System.Windows;
-
 namespace FolderNotifier;
 
 internal static class Program
@@ -13,13 +11,14 @@ internal static class Program
         if (!firstInstance)
         {
             if (!atLogin)
-                MessageBox.Show("이미 실행 중입니다. 작업 표시줄의 숨겨진 아이콘에서 폴더 알림을 열어 주세요.",
-                    "폴더 알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                Environment.ExitCode = InstanceActivation.RequestAsync().GetAwaiter().GetResult() ? 0 : 1;
             return;
         }
         var app = new App();
         app.InitializeComponent();
         var window = new MainWindow();
+        using var activation = new InstanceActivation(() =>
+            app.Dispatcher.BeginInvoke(new Action(window.ShowWindow)));
         app.SessionEnding += (_, _) => window.PrepareForSessionEnd();
         if (atLogin && window.CanStartInBackground)
         {

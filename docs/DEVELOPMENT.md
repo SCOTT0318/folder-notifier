@@ -13,7 +13,7 @@ Windows 11에서 지정한 폴더에 새 파일이 추가되면 화면 오른쪽
 
 설치 파일 하나에 앱과 런타임이 포함되어 있어 ZIP 압축 해제나 별도 런타임 설치가 필요 없습니다. 현재 사용자에게 설치되며, Windows **설정 → 앱 → 설치된 앱 → 폴더 알림**에서 제거합니다. 설정 파일은 업데이트 / 제거 시 유지합니다. 앱이 실행 중인 상태에서 업데이트하려면 트레이 메뉴의 **종료**로 먼저 종료하세요.
 
-설치하지 않고 사용할 때는 `dist/FolderNotifier-1.9.0/FolderNotifier.exe`를 실행합니다.
+설치하지 않고 사용할 때는 `dist/FolderNotifier-1.9.1/FolderNotifier.exe`를 실행합니다.
 
 **닫기(X)** 또는 **트레이로 숨기기**를 누르면 트레이에서 계속 실행됩니다. 트레이 아이콘을 두 번 클릭하면 창이 열립니다. 완전히 끝내려면 **종료** 또는 트레이 메뉴의 **종료**를 사용하세요.
 
@@ -88,7 +88,7 @@ dotnet run --project FolderNotifier.AcceptanceTests -c Release -- $installedDll 
 .\build.ps1 -SelfContained
 ```
 
-배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.9.0`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
+배포할 때는 `dist/FolderNotifier` 폴더 전체를 함께 전달하세요. 자체 포함 빌드는 `dist/FolderNotifier-1.9.1`처럼 앱 버전을 포함한 폴더에 생성되며 해당 폴더 전체를 전달합니다.
 
 일반 빌드를 사용한다면 `dist/FolderNotifier/FolderNotifier.exe`를 실행합니다.
 

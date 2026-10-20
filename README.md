@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Windows-11-3767F1?style=flat-square" alt="Windows 11" />
   <img src="https://img.shields.io/badge/Architecture-x64-536783?style=flat-square" alt="x64" />
   <img src="https://img.shields.io/badge/UI-%ED%95%9C%EA%B5%AD%EC%96%B4-20844D?style=flat-square" alt="한국어 UI" />
-  <img src="https://img.shields.io/badge/Source-v1.9.0-3767F1?style=flat-square" alt="현재 소스 v1.9.0" />
+  <img src="https://img.shields.io/badge/Source-v1.9.1-3767F1?style=flat-square" alt="현재 소스 v1.9.1" />
   <a href="https://github.com/SCOTT0318/folder-notifier/releases/latest"><img src="https://img.shields.io/github/v/release/SCOTT0318/folder-notifier?style=flat-square&amp;label=Release&amp;color=536783" alt="최신 공개 릴리스" /></a>
 </p>
 
@@ -30,7 +30,7 @@
 ---
 
 > [!NOTE]
-> **소스와 공개 설치본의 버전을 확인하세요.** 2026-10-19 기준 이 저장소의 소스와 로컬 설치 검증 버전은 **v1.9.0**, GitHub의 최신 공개 설치본은 **v1.2.0**입니다. 위 다운로드는 최신 공개 릴리스를 가리킵니다. 아래의 버튼 디자인과 앱 내부 업데이트 기능은 v1.9.0 기준이며, v1.9.0 설치본은 아직 GitHub Releases에 게시하지 않았습니다.
+> **v1.9.1 · 2026-10-20** — 앱이 이미 실행 중이어도 바탕 화면·시작 메뉴 아이콘을 다시 실행하면 기존 창이 앞으로 열립니다. 트레이 숨김·최소화 상태를 복원하고 최대화 상태는 유지합니다. [변경 내용](docs/releases/v1.9.1.md)을 확인하세요.
 
 <p align="center">
   <a href="#주요-기능">주요 기능</a> &nbsp;·&nbsp;
@@ -125,7 +125,7 @@ Windows의 시작 앱 설정에서 별도로 사용 안 함으로 지정했다�
 
 ### 숨기기와 종료
 
-**닫기(X)**는 트레이로 숨깁니다. 트레이 아이콘을 두 번 클릭하면 창이 열립니다.
+**닫기(X)**는 트레이로 숨깁니다. 바탕 화면·시작 메뉴의 앱 아이콘을 다시 실행하거나 트레이 아이콘을 두 번 클릭하면 기존 창이 열립니다.
 완전히 종료하려면 앱의 **종료** 또는 트레이 메뉴의 **종료**를 선택하세요.
 
 ### 업데이트와 제거
@@ -177,7 +177,11 @@ Windows의 시작 앱 설정에서 별도로 사용 안 함으로 지정했다�
 
 Windows와 **.NET 10 SDK**가 필요합니다. C# WPF / .NET 내장 Fluent 테마와 독립 알림 팝업을 사용하며, 트레이 아이콘에는 Windows Forms `NotifyIcon`을 사용합니다.
 
-### v1.9.0 검증 기록
+### v1.9.1 검증 기록
+
+2026-10-20 파일 감시 34개 및 전체 화면·업데이트 통합 검증 통과. 별도 프로세스의 재실행 요청으로 트레이 숨김·최소화 창 복원과 활성화, 최대화 유지, 반복 실행, 수신 앱 부재 시 제한 시간 종료를 확인했습니다. 격리 설치·재설치·제거 결과는 [릴리스 기록](docs/releases/v1.9.1.md)에 기록합니다.
+
+### 이전 v1.9.0 검증 기록
 
 2026-10-19 확인 기준입니다. 자동 검증과 이 PC에서 수행한 실제 재설치 결과를 구분해 기록합니다.
 

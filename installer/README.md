@@ -31,8 +31,8 @@
 버전별 별도 배포 폴더를 지정하려면 두 명령에 같은 `-PublishDirectory`를 전달합니다.
 
 ```powershell
-.\build-installer.ps1 -SkipPublish -PublishDirectory 'dist\FolderNotifier-1.9.0'
-.\installer\verify-installer.ps1 -PublishDirectory 'dist\FolderNotifier-1.9.0'
+.\build-installer.ps1 -SkipPublish -PublishDirectory 'dist\FolderNotifier-1.9.1'
+.\installer\verify-installer.ps1 -PublishDirectory 'dist\FolderNotifier-1.9.1'
 ```
 
 검증 스크립트는 같은 설치 EXE를 작업 폴더 아래 격리된 경로로 설치하고 파일 해시/제거를 검사합니다. `/SMOKETEST=1` 옵션으로 시작 메뉴/바탕 화면 바로가기, 설치 앱 등록, 별도 실행 중인 사용자 앱의 mutex 검사를 생략하며, 앱을 실행/종료하거나 실제 사용자 설정을 변경하지 않습니다. 일반 설치/제거에는 실행 중인 앱 확인이 적용됩니다.
